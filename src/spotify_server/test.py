@@ -3,10 +3,12 @@ import json
 import os
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
+from spotify_server.trainer import SpotifyTrainer
 
 app = Flask(__name__)
 app.secret_key = "geheim"  # für Sessions
 TRACK_DATA_FILE = "track_data.json"
+playlist_id = None
 
 # Spotify API-Konfiguration
 sp = spotipy.Spotify(
@@ -16,6 +18,8 @@ sp = spotipy.Spotify(
         redirect_uri="http://www.argumente-gegen-rechts.de:5000/callback",
         scope="user-read-playback-state user-modify-playback-state"
 ))
+trainer = SpotifyTrainer("training_data.json", sp)
+trainer.load_training_data()  # Beispiel-Playlist-ID
 
 @app.route("/")
 def index():
@@ -55,7 +59,7 @@ def play_pause():
 
 @app.route("/skip")
 def skip():
-    sp.next_track()
+    sp.start_playback(uris=[f'spotify:track:{trainer.get_next_track(playlist_id)}'])
     return redirect("/")
 
 @app.route("/check_guess", methods=["POST"])
