@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "spotify-server"
+version = "0.1.0"
+description = "Kurzbeschreibung deines Projekts"
+authors = [{ name = "Linus Meinders", email = "linus.meinders@festo.com" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "spotipy",
+    "pyqt5", 
+    "flask",
+    "json"
+]
+
+[project.scripts]
+spotify-server = "spotify-server.test:cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = ["tests"]
+
+[tool.setuptools_scm]

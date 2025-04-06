@@ -128,3 +128,6 @@ def save_track_data(track_id, year):
 
 if __name__ == "__main__":
     app.run(host="::", port=5000)
+
+def cli():
+    app.run(host="::", port=5000)
