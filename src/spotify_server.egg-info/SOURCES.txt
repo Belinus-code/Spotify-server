@@ -1,0 +1,14 @@
+.cache
+pyproject.toml
+track_data.json
+training_data_json
+src/spotify_server/__init__.py
+src/spotify_server/test.py
+src/spotify_server/trainer.py
+src/spotify_server.egg-info/PKG-INFO
+src/spotify_server.egg-info/SOURCES.txt
+src/spotify_server.egg-info/dependency_links.txt
+src/spotify_server.egg-info/entry_points.txt
+src/spotify_server.egg-info/requires.txt
+src/spotify_server.egg-info/top_level.txt
+src/spotify_server/templates/index.html

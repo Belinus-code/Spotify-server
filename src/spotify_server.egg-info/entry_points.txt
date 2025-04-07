@@ -1,0 +1,2 @@
+[console_scripts]
+spotify-server = spotify_server.test:cli
