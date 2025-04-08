@@ -1,6 +1,7 @@
 import json
 import random
 import os
+from rapidfuzz import fuzz
 
 
 class SpotifyTrainer:
@@ -21,6 +22,7 @@ class SpotifyTrainer:
 
 
     def get_playlist_tracks(self, playlist_id):
+        print(type(playlist_id))
         tracks = []
         results = self.sp.playlist_items(playlist_id)
         while results:
@@ -37,13 +39,13 @@ class SpotifyTrainer:
     
     def initialize_training_data(self, playlist_id, tracks):
         # Nur 30 zufällige Lieder aus der Playlist auswählen
-        selected_tracks = random.sample(tracks, min(30, len(tracks)))
+        selected_tracks = random.sample(tracks, min(20, len(tracks)))
 
         self.training_data[playlist_id] = {}
         for track in selected_tracks:
             self.training_data[playlist_id][track['id']] = {
                 "correct_guesses": 0,
-                "repeat_in_n": random.randint(1, 15),  # Zufälliger Wert für den initialen Abstand
+                "repeat_in_n": random.randint(1, 20),  # Zufälliger Wert für den initialen Abstand
                 "revisions": 0
             }
 
@@ -51,7 +53,7 @@ class SpotifyTrainer:
 
     def get_next_track(self, playlist_id):
 
-        if self.training_data[playlist_id] is None:
+        if self.training_data.get(playlist_id) is None:
             self.initialize_training_data(playlist_id, self.get_playlist_tracks(playlist_id))
 
         active_songs = [
@@ -68,7 +70,7 @@ class SpotifyTrainer:
         
         song = random.choice(active_songs)[0]
         data = self.training_data[playlist_id][song]
-        data["repeat_in_n"] = random.randint(3, 10)  # Zufälliger Wert für den neuen Abstand
+        data["repeat_in_n"] = random.randint(3, 6)  # Zufälliger Wert für den neuen Abstand
         return song
 
     def update_training(self, playlist_id, track_id, score):
@@ -76,13 +78,17 @@ class SpotifyTrainer:
 
         if score == 5:
             data["correct_guesses"] += 1
-            base_gap = 10 + data["correct_guesses"] * 10
+            base_gap = 10 + data["correct_guesses"] * 5
         elif score == 4:
             base_gap = 10
         elif score == 3:
-            base_gap = 5
+            base_gap = random.randint(6, 8)
+        elif score == 2:
+            base_gap = random.randint(4, 6)
+        elif score == 1:
+            base_gap = random.randint(2, 4)
         else:
-            base_gap = 1  # wenn total daneben, gleich nochmal bringen
+            base_gap = random.randint(1, 3)  # wenn total daneben, gleich nochmal bringen
 
         data["repeat_in_n"] = base_gap
         data["revisions"] += 1
@@ -98,9 +104,25 @@ class SpotifyTrainer:
                 "revisions": 0
             }
 
-    def calculate_score(self, correct_guesses, revisions):
-        # Beispielhafter Score-Algorithmus
-        if revisions == 0:
-            return 0  # noch nie bewertet
-        score = correct_guesses / revisions
-        return min(score * 5, 5)  # Maximaler Wert von 5
+    def calculate_score(self, object):
+        # Score anhand der richtigkeit der Antwort berechnen
+        if object["guess_name"] is not None:
+            name_sim = fuzz.ratio(object['name'], object['guess_name'])
+        else:
+            name_sim = 0
+        artist_sim = 0
+        for artist in object['artists']:
+            artist_sim = max(artist_sim, fuzz.ratio(artist, object['guess_artist']))
+        year_diff = abs(int(object['year']) - int(object['guess_year']))
+        score = (5 - min(5, year_diff)) / 2
+        if name_sim > 60:
+            score += 1.25
+        else:
+            score += (name_sim / 100) * 0.3
+        if artist_sim > 60: 
+            score += 1.25
+        else:     
+            score += (artist_sim / 100) * 0.3
+        
+
+        return int(score) if score > 0 else 0  # Score auf 0 setzen, wenn kleiner als 0

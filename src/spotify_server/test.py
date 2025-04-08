@@ -4,6 +4,7 @@ import os
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from spotify_server.trainer import SpotifyTrainer
+import re
 
 app = Flask(__name__)
 app.secret_key = "geheim"  # für Sessions
@@ -42,10 +43,12 @@ def callback():
 @app.route("/set_playlist", methods=["POST"])
 def set_playlist():
     playlist_url = request.form.get("playlist_url")
-    playlist_id = playlist_url.split("/")[-1]
+    playlist_id = playlist_url.split("/")[-1].split("?")[0]
+    session["playlist_id"] = playlist_id  # Speichern der Playlist-ID in der Session
     try:
         sp.shuffle(state=True)
         sp.start_playback(context_uri=f"spotify:playlist:{playlist_id}")  # Spielt Playlist ab
+        skip()
     except Exception as e:
         flash("Kein Aktives Spotify Gerät gefunden. Bitte spiele irgendetwas auf deinem Spotify ab, und versuche es erneut.", "error")
         print(e)
@@ -54,22 +57,35 @@ def set_playlist():
 
 @app.route("/play_pause")
 def play_pause():
-    sp.pause_playback() if sp.current_playback()['is_playing'] else sp.start_playback()
+    try:
+        sp.pause_playback() if sp.current_playback()['is_playing'] else sp.start_playback()
+    except Exception as e:
+        flash("Kein Aktives Spotify Gerät gefunden. Bitte spiele irgendetwas auf deinem Spotify ab, und versuche es erneut.", "error")
+        print(e)
     return redirect("/")
 
 @app.route("/skip")
 def skip():
-    sp.start_playback(uris=[f'spotify:track:{trainer.get_next_track(playlist_id)}'])
+    try:
+        sp.start_playback(uris=[f'spotify:track:{trainer.get_next_track(session["playlist_id"])}'])
+    except Exception as e:
+        flash("Kein Aktives Spotify Gerät gefunden. Bitte spiele irgendetwas auf deinem Spotify ab, und versuche es erneut.", "error")
+        print(e)
     return redirect("/")
 
 @app.route("/check_guess", methods=["POST"])
 def check_guess():
     # Holen der aktuellen Wiedergabe-Informationen von Spotify
+    guess_year = request.form.get("year_guess")
+    guess_artist = request.form.get("artist_guess")
+    guess_title = request.form.get("title_guess")
+
     current_playback = sp.current_playback()
-    
     if current_playback is None:
         flash("Kein Song wird gerade abgespielt.", "warning")
-        return redirect("/")
+        return render_template("index.html", year_guess=guess_year, 
+                           artist_guess=guess_artist, 
+                           title_guess=guess_title)
     
     # Auslesen der benötigten Informationen
     track_id = current_playback['item']['id']
@@ -77,6 +93,7 @@ def check_guess():
     artists = [artist['name'] for artist in current_playback['item']['artists']]
     artist = ", ".join(artists)  # Alle Künstlernamen zu einem String verbinden
     title = current_playback['item']['name']  # Songtitel
+    title = re.sub(r"\(.*?\)", "", title).strip()
 
     # Prüfen, ob das Jahr in der JSON-Datei gespeichert ist
     track_data = load_track_data()
@@ -84,10 +101,23 @@ def check_guess():
         year = track_data[track_id]  # Falls Jahr gespeichert, überschreibe es
     
     # Flash-Nachricht mit den Ergebnissen
-    flash(f"Jahr: {year}, Interpret: {artist}, Titel: {title}", "song_info")
+    # flash(f"Jahr: {year}, Interpret: {artist}, Titel: {title}", "song_info")
     
     # Die Daten an das Template weitergeben
-    return render_template("index.html", year_guess=year, artist_guess=artist, title_guess=title)
+    
+
+    score = trainer.calculate_score({
+        "name": title,
+        "artists": artists,
+        "year": year,
+        "guess_name": guess_title,
+        "guess_artist": guess_artist,
+        "guess_year": guess_year
+    })
+    trainer.update_training(session["playlist_id"], track_id, score)
+    return render_template("index.html", year_guess=(guess_year + " (" + str(year) + ")"), 
+                           artist_guess=(guess_artist + " (" + str(artist) + ")"), 
+                           title_guess=(guess_title + " (" + str(title) + ")"))
 
 @app.route("/save_year", methods=["POST"])
 def save_year():

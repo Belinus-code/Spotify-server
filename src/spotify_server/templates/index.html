@@ -96,9 +96,9 @@
     <!-- Eingabe für das Raten -->
     <h3>Rate das Lied</h3>
     <form action="/check_guess" method="POST">
-        <input type="text" name="year_guess" value="{{ year_guess }}" placeholder="Veröffentlichungsjahr" readonly>
-        <input type="text" name="artist_guess" value="{{ artist_guess }}" placeholder="Interpret" readonly>
-        <input type="text" name="title_guess" value="{{ title_guess }}" placeholder="Titel" readonly>
+        <input type="text" name="year_guess" value="{{ year_guess }}" placeholder="Veröffentlichungsjahr" required autocomplete="off">
+        <input type="text" name="artist_guess" value="{{ artist_guess }}" placeholder="Interpret" autocomplete="off">
+        <input type="text" name="title_guess" value="{{ title_guess }}" placeholder="Titel" autocomplete="off">
         <button type="submit">Raten</button>
     </form>
 

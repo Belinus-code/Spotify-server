@@ -14,9 +14,9 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "spotipy",
-    "pyqt5", 
-    "flask"
+    "spotipy", 
+    "flask", 
+    "rapidfuzz"
 ]
 
 [project.scripts]

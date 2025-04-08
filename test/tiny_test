@@ -1,0 +1,11 @@
+from spotify_server.trainer import SpotifyTrainer
+
+trainer = SpotifyTrainer("training_data.json", None)  # Dummy-Objekt, da wir die Spotify-API nicht verwenden
+obj = {}
+obj["name"] = "Heat Waves"
+obj["artists"] = ["Glass Animals"]
+obj["year"] = 2020
+obj["guess_name"] = input("Guess the name of the song: ")
+obj["guess_artist"] = input("Guess the artist of the song: ")
+obj["guess_year"] = input("Guess the year of the song: ")
+trainer.calculate_score(obj)
