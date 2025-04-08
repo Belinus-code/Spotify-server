@@ -3,102 +3,122 @@
         "0Je3J2ml1lrnTLXXIlxrvR": {
             "correct_guesses": 2,
             "repeat_in_n": 3,
-            "revisions": 9
+            "revisions": 9,
+            "is_done": false
         },
         "0mFIn4etymn4sDWNrERNJh": {
             "correct_guesses": 4,
             "repeat_in_n": 5,
-            "revisions": 7
+            "revisions": 7,
+            "is_done": false
         },
         "5N6M8yDiMV32T6Rkzh8EbW": {
             "correct_guesses": 3,
             "repeat_in_n": 8,
-            "revisions": 9
+            "revisions": 9,
+            "is_done": false
         },
         "0jvN7eQJJt4nxQzgQfZ1SP": {
             "correct_guesses": 4,
             "repeat_in_n": 0,
-            "revisions": 8
+            "revisions": 8,
+            "is_done": false
         },
         "2oXchyEBxQBe8vH6iFgbv0": {
             "correct_guesses": 3,
             "repeat_in_n": 4,
-            "revisions": 9
+            "revisions": 9,
+            "is_done": false
         },
         "1hGvGM76KOX6tpAyaHB0au": {
             "correct_guesses": 5,
             "repeat_in_n": 35,
-            "revisions": 9
+            "revisions": 9,
+            "is_done": false
         },
         "5mmuzYKRWwpgsUNxhMg2ZW": {
             "correct_guesses": 4,
             "repeat_in_n": 14,
-            "revisions": 8
+            "revisions": 8,
+            "is_done": false
         },
         "7aJgh6LCvhXJfD7PHjhG70": {
             "correct_guesses": 4,
             "repeat_in_n": 8,
-            "revisions": 10
+            "revisions": 10,
+            "is_done": false
         },
         "0di7hMT6o1ogeUN1XDB9Ft": {
             "correct_guesses": 4,
             "repeat_in_n": 21,
-            "revisions": 9
+            "revisions": 9,
+            "is_done": false
         },
         "6YUTL4dYpB9xZO5qExPf05": {
             "correct_guesses": 4,
             "repeat_in_n": 2,
-            "revisions": 8
+            "revisions": 8,
+            "is_done": false
         },
         "71hIekopkrYCGgggsBOpVG": {
             "correct_guesses": 5,
             "repeat_in_n": 33,
-            "revisions": 7
+            "revisions": 7,
+            "is_done": false
         },
         "0utLWSIbolqT7KyppMuxKY": {
             "correct_guesses": 5,
             "repeat_in_n": 22,
-            "revisions": 9
+            "revisions": 9,
+            "is_done": false
         },
         "3GYdFB1UtGEqKGlf6R80Nx": {
             "correct_guesses": 4,
             "repeat_in_n": 16,
-            "revisions": 8
+            "revisions": 8,
+            "is_done": false
         },
         "7ef4DlsgrMEH11cDZd32M6": {
             "correct_guesses": 4,
             "repeat_in_n": 1,
-            "revisions": 7
+            "revisions": 7,
+            "is_done": false
         },
         "08ELdy0Y3kHX59SR5qy69z": {
             "correct_guesses": 5,
             "repeat_in_n": 9,
-            "revisions": 8
+            "revisions": 8,
+            "is_done": false
         },
         "1SssFw74DdHVjRa6ADggdD": {
             "correct_guesses": 4,
             "repeat_in_n": 16,
-            "revisions": 9
+            "revisions": 9,
+            "is_done": false
         },
         "6dugx9WBSS8TDxbKqp9zmj": {
             "correct_guesses": 3,
             "repeat_in_n": 5,
-            "revisions": 9
+            "revisions": 9,
+            "is_done": false
         },
         "6OuRbvP4PgbuzBIapVzmFJ": {
             "correct_guesses": 4,
             "repeat_in_n": 19,
-            "revisions": 8
+            "revisions": 8,
+            "is_done": false
         },
         "5vd1QZ0tdXOExiegC55IAS": {
             "correct_guesses": 4,
             "repeat_in_n": 15,
-            "revisions": 8
+            "revisions": 8,
+            "is_done": false
         },
         "2vlXmglKhzSlV5XJgPzjnx": {
             "correct_guesses": 4,
             "repeat_in_n": 5,
-            "revisions": 6
+            "revisions": 6,
+            "is_done": false
         }
     }
 }
