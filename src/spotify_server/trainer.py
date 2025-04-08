@@ -98,6 +98,9 @@ class SpotifyTrainer:
         else:
             base_gap = random.randint(1, 3)  # wenn total daneben, gleich nochmal bringen
 
+        if score < 3:
+            data["correct_guesses"] = max(0, data["correct_guesses"] - 1)
+
         data["repeat_in_n"] = base_gap
         data["revisions"] += 1
 
