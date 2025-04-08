@@ -100,12 +100,6 @@ def check_guess():
     if track_id in track_data:
         year = track_data[track_id]  # Falls Jahr gespeichert, überschreibe es
     
-    # Flash-Nachricht mit den Ergebnissen
-    # flash(f"Jahr: {year}, Interpret: {artist}, Titel: {title}", "song_info")
-    
-    # Die Daten an das Template weitergeben
-    
-
     score = trainer.calculate_score({
         "name": title,
         "artists": artists,
@@ -114,6 +108,7 @@ def check_guess():
         "guess_artist": guess_artist,
         "guess_year": guess_year
     })
+    flash(f"Score: {score}", "success")
     trainer.update_training(session["playlist_id"], track_id, score)
     return render_template("index.html", year_guess=(guess_year + " (" + str(year) + ")"), 
                            artist_guess=(guess_artist + " (" + str(artist) + ")"), 
