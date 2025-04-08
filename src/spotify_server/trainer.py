@@ -82,10 +82,11 @@ class SpotifyTrainer:
             if base_gap > 25 and not data["is_done"]:
                 all_tracks = self.get_playlist_tracks(playlist_id)
                 trained_track_ids = set(self.training_data.get(playlist_id, {}).keys())
-                untrained_tracks = [track for track in all_tracks if track not in trained_track_ids]
+                untrained_tracks = [track for track in all_tracks if track["id"] not in trained_track_ids]
                 if untrained_tracks:
                     new_track = random.sample(untrained_tracks, min(1, len(untrained_tracks)))
-                    self.add_new_track(playlist_id, new_track)  # Neues Lied hinzufügen
+                    id = new_track[0]["id"]
+                    self.add_new_track(playlist_id, id)  # Neues Lied hinzufügen
                     data["is_done"] = True  # Markiere das Lied als "fertig"
         elif score == 4:
             base_gap = 10
