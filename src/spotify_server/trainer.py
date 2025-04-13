@@ -22,7 +22,6 @@ class SpotifyTrainer:
 
 
     def get_playlist_tracks(self, playlist_id):
-        print(type(playlist_id))
         tracks = []
         results = self.sp.playlist_items(playlist_id)
         while results:
@@ -120,12 +119,12 @@ class SpotifyTrainer:
     def calculate_score(self, object):
         # Score anhand der richtigkeit der Antwort berechnen
         if object["guess_name"] is not None:
-            name_sim = fuzz.ratio(object['name'], object['guess_name'])
+            name_sim = fuzz.ratio(object['name'].lower(), object['guess_name'].lower())
         else:
             name_sim = 0
         artist_sim = 0
         for artist in object['artists']:
-            artist_sim = max(artist_sim, fuzz.ratio(artist, object['guess_artist']))
+            artist_sim = max(artist_sim, fuzz.ratio(artist.lower(), object['guess_artist'].lower()))
         year_diff = abs(int(object['year']) - int(object['guess_year']))
         score = (5 - min(5, year_diff)) / 2
         if name_sim > 60:
