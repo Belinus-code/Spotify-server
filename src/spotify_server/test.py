@@ -60,7 +60,7 @@ def play_pause():
     try:
         sp.pause_playback() if sp.current_playback()['is_playing'] else sp.start_playback()
     except Exception as e:
-        flash("Kein Aktives Spotify Gerät gefunden. Bitte spiele irgendetwas auf deinem Spotify ab, und versuche es erneut.", "error")
+        flash(str(e), "error")
         print(e)
     return redirect("/")
 
@@ -69,7 +69,7 @@ def skip():
     try:
         sp.start_playback(uris=[f'spotify:track:{trainer.get_next_track(session["playlist_id"])}'])
     except Exception as e:
-        flash("Kein Aktives Spotify Gerät gefunden. Bitte spiele irgendetwas auf deinem Spotify ab, und versuche es erneut.", "error")
+        flash(str(e), "error")
         print(e)
     return redirect("/")
 
