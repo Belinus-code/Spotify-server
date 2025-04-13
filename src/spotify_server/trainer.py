@@ -78,14 +78,14 @@ class SpotifyTrainer:
         if score == 5:
             data["correct_guesses"] += 1
             base_gap = 10 + data["correct_guesses"] * 5
-            if base_gap > 25 and not data["is_done"]:
+            if base_gap > 25 and not data["is_done"] and self.count_tracks_below_threshold(playlist_id, 25) < 15:
                 all_tracks = self.get_playlist_tracks(playlist_id)
                 trained_track_ids = set(self.training_data.get(playlist_id, {}).keys())
                 untrained_tracks = [track for track in all_tracks if track["id"] not in trained_track_ids]
                 if untrained_tracks:
                     new_track = random.sample(untrained_tracks, min(1, len(untrained_tracks)))
-                    id = new_track[0]["id"]
-                    self.add_new_track(playlist_id, id)  # Neues Lied hinzufügen
+                    new_track_id = new_track[0]["id"]
+                    self.add_new_track(playlist_id, new_track_id)  # Neues Lied hinzufügen
                     data["is_done"] = True  # Markiere das Lied als "fertig"
         elif score == 4:
             base_gap = 10
@@ -138,3 +138,10 @@ class SpotifyTrainer:
         
 
         return int(score) if score > 0 else 0  # Score auf 0 setzen, wenn kleiner als 0
+    
+    def count_tracks_below_threshold(self, playlist_id, threshold):
+        if playlist_id not in self.training_data:
+            return 0
+
+        return sum(1 for track_data in self.training_data[playlist_id].values()
+                if track_data.get("repeat_in_n", float("inf")) < threshold)

@@ -93,7 +93,7 @@ def check_guess():
     artists = [artist['name'] for artist in current_playback['item']['artists']]
     artist = ", ".join(artists)  # Alle Künstlernamen zu einem String verbinden
     title = current_playback['item']['name']  # Songtitel
-    title = re.sub(r"\(.*?\)", "", title).strip()
+    title = clean_title(title)
 
     # Prüfen, ob das Jahr in der JSON-Datei gespeichert ist
     track_data = load_track_data()
@@ -150,6 +150,14 @@ def save_track_data(track_id, year):
     track_data[track_id] = year
     with open(TRACK_DATA_FILE, "w") as file:
         json.dump(track_data, file)
+
+def clean_title(title):
+    # Alles in Klammern entfernen
+    title = re.sub(r"\(.*?\)", "", title)
+    # Alles hinter einem Bindestrich entfernen
+    title = title.split("-")[0]
+    # Whitespace bereinigen
+    return title.strip()
 
 if __name__ == "__main__":
     app.run(host="::", port=5000)
