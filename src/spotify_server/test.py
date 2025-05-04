@@ -136,6 +136,37 @@ def save_year():
     save_track_data(track_id, int(year))
     flash(f"Jahr für {title} gespeichert!", "success")
     return redirect("/")
+@app.route("/save_current_track", methods=["POST"])
+def save_current_track():
+    current_playback = sp.current_playback()
+    if not current_playback or not current_playback["is_playing"]:
+        flash("Es läuft aktuell kein Song.", "error")
+        return redirect("/")
+
+    playlist_id = session["playlist_id"]
+
+    track_id = current_playback["item"]["id"]
+
+    # Lade bestehende interne Playlists
+    try:
+        with open("internal_playlists.json", "r") as f:
+            internal_playlists = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        internal_playlists = {}
+
+    # Track zur Playlist-ID hinzufügen
+    if playlist_id not in internal_playlists:
+        internal_playlists[playlist_id] = []
+
+    if track_id not in internal_playlists[playlist_id]:
+        internal_playlists[playlist_id].append(track_id)
+
+    # Speichern
+    with open("internal_playlists.json", "w") as f:
+        json.dump(internal_playlists, f, indent=2)
+
+    flash("Track erfolgreich gespeichert.", "success")
+    return redirect("/")
 
 # Hilfsfunktion, um die Track-Daten zu laden
 def load_track_data():

@@ -77,16 +77,12 @@ class SpotifyTrainer:
 
         if score == 5:
             data["correct_guesses"] += 1
+            data["correct_in_row"] += 1
             base_gap = 10 + data["correct_guesses"] * 5
-            if base_gap > 25 and not data["is_done"] and self.count_tracks_below_threshold(playlist_id, 25) < 15:
-                all_tracks = self.get_playlist_tracks(playlist_id)
-                trained_track_ids = set(self.training_data.get(playlist_id, {}).keys())
-                untrained_tracks = [track for track in all_tracks if track["id"] not in trained_track_ids]
-                if untrained_tracks:
-                    new_track = random.sample(untrained_tracks, min(1, len(untrained_tracks)))
-                    new_track_id = new_track[0]["id"]
-                    self.add_new_track(playlist_id, new_track_id)  # Neues Lied hinzufügen
-                    data["is_done"] = True  # Markiere das Lied als "fertig"
+            print(self.count_tracks_below_threshold(playlist_id, 3))
+            if base_gap > 25 and not data["is_done"] and self.count_tracks_below_threshold(playlist_id, 3) < 15:
+                data["is_done"] = True  # Markiere das Lied als "fertig"
+                self.choose_new_track(playlist_id)
         elif score == 4:
             base_gap = 10
         elif score == 3:
@@ -98,8 +94,9 @@ class SpotifyTrainer:
         else:
             base_gap = random.randint(1, 3)  # wenn total daneben, gleich nochmal bringen
 
-        if score < 3:
+        if score < 4:
             data["correct_guesses"] = max(0, data["correct_guesses"] - 1)
+            data["correct_in_row"] = 0  # Reset der richtigen Antworten in Folge
 
         data["repeat_in_n"] = base_gap
         data["revisions"] += 1
@@ -107,10 +104,49 @@ class SpotifyTrainer:
         # Save training data after update
         self.save_training_data()
 
+    def choose_new_track(self, playlist_id):
+        # Versuche interne Playlist zu laden
+        try:
+            with open("internal_playlists.json", "r") as f:
+                internal_playlists = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            internal_playlists = {}
+
+        # Entscheide ob interne oder Spotify Playlist genutzt wird
+        if playlist_id in internal_playlists:
+            if playlist_id in internal_playlists:
+                track_ids = internal_playlists[playlist_id]
+                
+                # In 50er-Chunks aufteilen
+                all_tracks = []
+                for i in range(0, len(track_ids), 50):
+                    chunk = track_ids[i:i + 50]
+                    try:
+                        response = self.sp.tracks(chunk)
+                        for track in response["tracks"]:
+                            if track:  # Kann theoretisch None sein
+                                all_tracks.append({
+                                    "id": track["id"],
+                                    "popularity": track.get("popularity", 0)
+                                })
+                    except Exception as e:
+                        print(f"Fehler beim Abrufen von Tracks: {e}")
+        else:
+            all_tracks = self.get_playlist_tracks(playlist_id)
+        trained_track_ids = set(self.training_data.get(playlist_id, {}).keys())
+        untrained_tracks = [track for track in all_tracks if track["id"] not in trained_track_ids]
+        if untrained_tracks:
+            new_track = random.sample(untrained_tracks, min(1, len(untrained_tracks)))
+            new_track_id = new_track[0]["id"]
+            self.add_new_track(playlist_id, new_track_id)  # Neues Lied hinzufügen
+            
+
     def add_new_track(self, playlist_id, track_id):
+        print(f"Neues Lied hinzugefügt")
         if track_id not in self.training_data[playlist_id]:
             self.training_data[playlist_id][track_id] = {
                 "correct_guesses": 0,
+                "correct_in_row": 0,
                 "repeat_in_n": random.randint(1, 3),  # Zufälliger Wert für das neue Lied
                 "revisions": 0,
                 "is_done": False
@@ -143,5 +179,10 @@ class SpotifyTrainer:
         if playlist_id not in self.training_data:
             return 0
 
-        return sum(1 for track_data in self.training_data[playlist_id].values()
-                if track_data.get("repeat_in_n", float("inf")) < threshold)
+        count = 0
+        for track_data in self.training_data[playlist_id].values():
+            if "correct_in_row" in track_data:
+                if track_data["correct_in_row"] < threshold:
+                    count += 1
+
+        return count
