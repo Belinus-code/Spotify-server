@@ -1,10 +1,13 @@
 .cache
+deploy.sh
 internal_playlists.json
 pyproject.toml
 start_spotify_server.ps1
 track_data.json
 training_data.json
 training_data_json
+dist/spotify_server-0.1.0-py3-none-any.whl
+dist/spotify_server-0.1.0.tar.gz
 src/spotify_server/__init__.py
 src/spotify_server/test.py
 src/spotify_server/trainer.py
