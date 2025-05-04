@@ -168,6 +168,14 @@ def save_current_track():
     flash("Track erfolgreich gespeichert.", "success")
     return redirect("/")
 
+@app.route('/stats')
+def stats():
+    total_songs = trainer.get_active_track_count(session["playlist_id"])
+    known_songs = trainer.get_finished_track_count(session["playlist_id"])
+    total_trys = trainer.get_try_count(session["playlist_id"])
+    return render_template('stats.html', total=total_songs, known=known_songs, trys=total_trys)
+
+
 # Hilfsfunktion, um die Track-Daten zu laden
 def load_track_data():
     if os.path.exists(TRACK_DATA_FILE):

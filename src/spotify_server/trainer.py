@@ -186,3 +186,30 @@ class SpotifyTrainer:
                     count += 1
 
         return count
+    
+    def get_try_count(self, playlist_id):
+        if playlist_id not in self.training_data:
+            return 0
+
+        count = 0
+        for track_data in self.training_data[playlist_id].values():
+            if "revisions" in track_data:
+                count += track_data["revisions"]
+
+        return count
+    
+    def get_active_track_count(self, playlist_id):
+        if playlist_id not in self.training_data:
+            return 0
+        return len(self.training_data[playlist_id])
+    
+    def get_finished_track_count(self, playlist_id):
+        if playlist_id not in self.training_data:
+            return 0
+
+        count = 0
+        for track_data in self.training_data[playlist_id].values():
+            if "is_done" in track_data and track_data["is_done"]:
+                count += 1
+
+        return count
