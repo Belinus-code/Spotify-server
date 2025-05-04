@@ -1,6 +1,9 @@
 .cache
+internal_playlists.json
 pyproject.toml
+start_spotify_server.ps1
 track_data.json
+training_data.json
 training_data_json
 src/spotify_server/__init__.py
 src/spotify_server/test.py
@@ -12,5 +15,9 @@ src/spotify_server.egg-info/entry_points.txt
 src/spotify_server.egg-info/requires.txt
 src/spotify_server.egg-info/top_level.txt
 src/spotify_server/__pycache__/__init__.cpython-312.pyc
+src/spotify_server/__pycache__/__init__.cpython-313.pyc
+src/spotify_server/__pycache__/test.cpython-313.pyc
 src/spotify_server/__pycache__/trainer.cpython-312.pyc
+src/spotify_server/__pycache__/trainer.cpython-313.pyc
 src/spotify_server/templates/index.html
+test/tiny_test.py
