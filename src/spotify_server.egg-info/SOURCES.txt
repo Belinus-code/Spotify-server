@@ -16,6 +16,7 @@ src/spotify_server.egg-info/requires.txt
 src/spotify_server.egg-info/top_level.txt
 src/spotify_server/__pycache__/__init__.cpython-312.pyc
 src/spotify_server/__pycache__/__init__.cpython-313.pyc
+src/spotify_server/__pycache__/test.cpython-312.pyc
 src/spotify_server/__pycache__/test.cpython-313.pyc
 src/spotify_server/__pycache__/trainer.cpython-312.pyc
 src/spotify_server/__pycache__/trainer.cpython-313.pyc
