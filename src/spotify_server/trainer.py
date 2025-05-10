@@ -1,7 +1,8 @@
-import json
 import random
-import os
+from sqlalchemy import create_engine, and_
+from sqlalchemy.orm import sessionmaker
 from rapidfuzz import fuzz
+from spotify_server.models import PlaylistTrack, TrainingData, Track, Artist, TrackArtist
 
 
 class SpotifyTrainer:
@@ -9,80 +10,106 @@ class SpotifyTrainer:
         self.training_data_file = training_data_file
         self.training_data = {}
         self.sp = sp
-
-    def load_training_data(self):
-        # Überprüfen, ob die Datei existiert und nicht leer ist
-        if os.path.exists(self.training_data_file) and os.path.getsize(self.training_data_file) > 0:
-            with open(self.training_data_file, 'r', encoding="utf-8") as file:
-                self.training_data = json.load(file)
+        self.engine = create_engine("mysql+pymysql://ADMIN:Zeppelin@37.120.186.189:3306/spotifytrainer")
+        self.Session = sessionmaker(bind=self.engine)
+        self.session = self.Session()
         
-    def save_training_data(self):
-        with open(self.training_data_file, 'w', encoding="utf-8") as file:
-            json.dump(self.training_data, file, indent=4)
-
-
     def get_playlist_tracks(self, playlist_id):
-        tracks = []
-        results = self.sp.playlist_items(playlist_id)
-        while results:
-            for item in results['items']:
-                track = item['track']
-                if track:
-                    tracks.append({
-                        'id': track['id'],
-                        'name': track['name'],
-                        'artists': [artist['name'] for artist in track['artists']]
-                    })
-            results = self.sp.next(results) if results['next'] else None
-        return tracks
+        return self.session.query(PlaylistTrack).filter_by(playlist_id=playlist_id).all()
     
-    def initialize_training_data(self, playlist_id, tracks):
-        # Nur 30 zufällige Lieder aus der Playlist auswählen
-        selected_tracks = random.sample(tracks, min(20, len(tracks)))
+    def initialize_training_data(self, playlist_id: str, user_id: int):
+        # 1. Alle Tracks aus der Playlist abrufen
+        playlist_tracks = self.get_playlist_tracks(playlist_id)
 
-        self.training_data[playlist_id] = {}
+        # 2. Zufällige Auswahl von Tracks (max. 20)
+        selected_tracks = random.sample(playlist_tracks, min(20, len(playlist_tracks)))
+
         for track in selected_tracks:
-            self.training_data[playlist_id][track['id']] = {
-                "correct_guesses": 0,
-                "repeat_in_n": random.randint(1, 20),  # Zufälliger Wert für den initialen Abstand
-                "revisions": 0
-            }
+            # 3. Neues Trainingseintrag erstellen
+            training_data_entry = TrainingData(
+                playlist_id=playlist_id,
+                track_id=track.track_id,  # Track ID aus der PlaylistTrack-Tabelle
+                user_id=user_id,
+                correct_guesses=0,
+                repeat_in_n=random.randint(1, 20),  # Zufälliger Wert für den initialen Abstand
+                revisions=0
+            )
 
-        self.save_training_data()
+            self.session.add(training_data_entry)
 
-    def get_next_track(self, playlist_id):
+        self.session.commit()
 
-        if self.training_data.get(playlist_id) is None:
-            self.initialize_training_data(playlist_id, self.get_playlist_tracks(playlist_id))
+    def get_next_track(self, playlist_id: str, user_id: int):
 
-        active_songs = [
-            (track_id, data)
-            for track_id, data in self.training_data[playlist_id].items()
-            if data['repeat_in_n'] <= 0
-        ]
+        session = self.session  # Session aus der Klasse
+
+        # 1. Alle Trainingsdaten mit repeat_in_n <= 0 laden (aktive Songs)
+        active_songs = session.query(TrainingData).filter(
+            and_(
+                TrainingData.playlist_id == playlist_id,
+                TrainingData.user_id == user_id,
+                TrainingData.repeat_in_n <= 0
+            )
+        ).all()
 
         if not active_songs:
-            # Alle Songs sind noch im Cooldown → eins runterzählen
-            for data in self.training_data[playlist_id].values():
-                data['repeat_in_n'] -= 1
-            return self.get_next_track(playlist_id)
-        
-        song = random.choice(active_songs)[0]
-        data = self.training_data[playlist_id][song]
-        data["repeat_in_n"] = random.randint(3, 6)  # Zufälliger Wert für den neuen Abstand
-        return song
+            # 2. Wenn keine aktiven Songs: alle repeat_in_n um 1 verringern
+            all_songs = session.query(TrainingData).filter(
+                and_(
+                    TrainingData.playlist_id == playlist_id,
+                    TrainingData.user_id == user_id
+                )
+            ).all()
+            for data in all_songs:
+                data.repeat_in_n -= 1
+            session.commit()
 
-    def update_training(self, playlist_id, track_id, score):
-        data = self.training_data[playlist_id][track_id]
+            if len(all_songs) == 0:
+                # Wenn keine Songs vorhanden sind, neue Tracks initialisieren
+                self.initialize_training_data(playlist_id, user_id)
 
+            # Rekursiver Retry
+            return self.get_next_track(playlist_id, user_id)
+
+        # 3. Zufälligen Song auswählen und repeat_in_n neu setzen
+        song_data = random.choice(active_songs)
+        song_data.repeat_in_n = random.randint(3, 6)
+        session.commit()
+
+        return song_data.track_id
+
+    def update_training(self, playlist_id: str, track_id: str, score: int, user_id: int = 0):
+        session = self.session
+
+        training_entry = session.query(TrainingData).filter_by(
+            playlist_id=playlist_id,
+            track_id=track_id,
+            user_id=user_id
+        ).first()
+
+        if training_entry is None:
+            print("Kein Trainingseintrag gefunden. Breche ab.")
+            print(f"Playlist ID: {playlist_id}, Track ID: {track_id}, User ID: {user_id}")
+            return
+
+        # Update Score Logic
         if score == 5:
-            data["correct_guesses"] += 1
-            data["correct_in_row"] += 1
-            base_gap = 10 + data["correct_guesses"] * 5
-            print(self.count_tracks_below_threshold(playlist_id, 3))
-            if base_gap > 25 and not data["is_done"] and self.count_tracks_below_threshold(playlist_id, 3) < 15:
-                data["is_done"] = True  # Markiere das Lied als "fertig"
-                self.choose_new_track(playlist_id)
+            training_entry.correct_guesses += 1
+            training_entry.correct_in_row += 1
+            base_gap = 10 + training_entry.correct_guesses * 5
+
+            below_threshold_count = session.query(TrainingData).filter(
+                and_(
+                    TrainingData.playlist_id == playlist_id,
+                    TrainingData.user_id == user_id,
+                    TrainingData.correct_guesses < 3
+                )
+            ).count()
+
+            if base_gap > 25 and not training_entry.is_done and below_threshold_count < 15:
+                training_entry.is_done = True
+                self.choose_new_track(playlist_id, user_id)  # Funktion muss angepasst werden
+
         elif score == 4:
             base_gap = 10
         elif score == 3:
@@ -92,65 +119,55 @@ class SpotifyTrainer:
         elif score == 1:
             base_gap = random.randint(2, 4)
         else:
-            base_gap = random.randint(1, 3)  # wenn total daneben, gleich nochmal bringen
+            base_gap = random.randint(1, 3)
 
         if score < 4:
-            data["correct_guesses"] = max(0, data["correct_guesses"] - 1)
-            data["correct_in_row"] = 0  # Reset der richtigen Antworten in Folge
+            training_entry.correct_guesses = max(0, training_entry.correct_guesses - 1)
+            training_entry.correct_in_row = 0
 
-        data["repeat_in_n"] = base_gap
-        data["revisions"] += 1
+        training_entry.repeat_in_n = base_gap
+        training_entry.revisions += 1
 
-        # Save training data after update
-        self.save_training_data()
+        session.commit()
 
-    def choose_new_track(self, playlist_id):
-        # Versuche interne Playlist zu laden
-        try:
-            with open("internal_playlists.json", "r") as f:
-                internal_playlists = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            internal_playlists = {}
+    def choose_new_track(self, playlist_id: str, user_id: int = 0):
+        session = self.session
 
-        # Entscheide ob interne oder Spotify Playlist genutzt wird
-        if playlist_id in internal_playlists:
-            if playlist_id in internal_playlists:
-                track_ids = internal_playlists[playlist_id]
-                
-                # In 50er-Chunks aufteilen
-                all_tracks = []
-                for i in range(0, len(track_ids), 50):
-                    chunk = track_ids[i:i + 50]
-                    try:
-                        response = self.sp.tracks(chunk)
-                        for track in response["tracks"]:
-                            if track:  # Kann theoretisch None sein
-                                all_tracks.append({
-                                    "id": track["id"],
-                                    "popularity": track.get("popularity", 0)
-                                })
-                    except Exception as e:
-                        print(f"Fehler beim Abrufen von Tracks: {e}")
-        else:
-            all_tracks = self.get_playlist_tracks(playlist_id)
-        trained_track_ids = set(self.training_data.get(playlist_id, {}).keys())
-        untrained_tracks = [track for track in all_tracks if track["id"] not in trained_track_ids]
-        if untrained_tracks:
-            new_track = random.sample(untrained_tracks, min(1, len(untrained_tracks)))
-            new_track_id = new_track[0]["id"]
-            self.add_new_track(playlist_id, new_track_id)  # Neues Lied hinzufügen
-            
+        # Alle Track-IDs aus der Playlist
+        playlist_track_ids = session.query(PlaylistTrack.track_id).filter_by(
+            playlist_id=playlist_id
+        ).subquery()
 
-    def add_new_track(self, playlist_id, track_id):
-        print(f"Neues Lied hinzugefügt")
-        if track_id not in self.training_data[playlist_id]:
-            self.training_data[playlist_id][track_id] = {
-                "correct_guesses": 0,
-                "correct_in_row": 0,
-                "repeat_in_n": random.randint(1, 3),  # Zufälliger Wert für das neue Lied
-                "revisions": 0,
-                "is_done": False
-            }
+        # IDs, für die schon Trainingsdaten existieren
+        trained_track_ids = session.query(TrainingData.track_id).filter_by(
+            playlist_id=playlist_id,
+            user_id=user_id
+        ).subquery()
+
+        # Finde untrainierte Tracks mit ihrer Popularität, sortiert absteigend
+        most_popular_untrained_track = session.query(Track.track_id).filter(
+            Track.track_id.in_(session.query(playlist_track_ids.c.track_id)),
+            ~Track.track_id.in_(session.query(trained_track_ids.c.track_id))
+        ).order_by(Track.popularity.desc()).first()
+
+        if not most_popular_untrained_track:
+            print("Keine untrainierten Tracks mehr mit Popularität gefunden.")
+            return
+
+        new_track_id = most_popular_untrained_track[0]
+
+        new_training_entry = TrainingData(
+            user_id=user_id,
+            playlist_id=playlist_id,
+            track_id=new_track_id,
+            correct_guesses=0,
+            repeat_in_n=random.randint(1, 6),
+            revisions=0,
+            is_done=False,
+            correct_in_row=0
+        )
+        session.add(new_training_entry)
+        session.commit()
 
     def calculate_score(self, object):
         # Score anhand der richtigkeit der Antwort berechnen
@@ -167,7 +184,7 @@ class SpotifyTrainer:
             score += 1.25
         else:
             score += (name_sim / 100) * 0.3
-        if artist_sim > 60: 
+        if artist_sim > 60:
             score += 1.25
         else:     
             score += (artist_sim / 100) * 0.3
@@ -213,3 +230,98 @@ class SpotifyTrainer:
                 count += 1
 
         return count
+    
+    def get_track_data(self, track_id: str) -> dict:
+        # Track laden oder neu anlegen
+        track = self.session.query(Track).filter_by(track_id=track_id).first()
+        if not track:
+            track = Track(track_id=track_id)
+            self.session.add(track)
+            self.session.commit()
+
+        # Prüfen, ob Name oder Jahr fehlt
+        missing_name = not track.name
+        missing_year = not track.year
+        missing_popularity = (track.popularity == -1)
+
+        # Künstler über Join ermitteln
+        artist_names = (
+            self.session.query(Artist.name)
+            .join(TrackArtist, Artist.artist_id == TrackArtist.artist_id)
+            .filter(TrackArtist.track_id == track_id)
+            .all()
+        )
+        artist_names = [name for (name,) in artist_names]
+        missing_artists = len(artist_names) == 0
+
+        # Wenn Daten fehlen → von Spotify laden
+        if missing_name or missing_year or missing_artists or missing_popularity:
+            try:
+                data = self.sp.track(track_id)
+
+                if missing_name:
+                    track.name = data["name"]
+                if missing_year:
+                    track.year = int(data["album"]["release_date"][:4])
+
+                if missing_popularity:
+                    track.popularity = data["popularity"]
+
+                if missing_artists:
+                    for artist_obj in data["artists"]:
+                        artist_name = artist_obj["name"]
+
+                        # Prüfen, ob Artist schon existiert
+                        artist = self.session.query(Artist).filter_by(name=artist_name).first()
+                        if not artist:
+                            artist = Artist(name=artist_name)
+                            self.session.add(artist)
+                            self.session.flush()  # Holt die neue artist_id
+
+                        # Beziehung track → artist anlegen
+                        link_exists = self.session.query(TrackArtist).filter_by(
+                            track_id=track_id,
+                            artist_id=artist.artist_id
+                        ).first()
+                        if not link_exists:
+                            ta = TrackArtist(track_id=track_id, artist_id=artist.artist_id)
+                            self.session.add(ta)
+
+                self.session.commit()
+
+            except Exception as e:
+                print(f"Fehler beim Spotify-Track-Fetch: {e}")
+                self.session.rollback()
+
+        # Künstler nochmal holen nach möglichem Update
+        artist_names = (
+            self.session.query(Artist.name)
+            .join(TrackArtist, Artist.artist_id == TrackArtist.artist_id)
+            .filter(TrackArtist.track_id == track_id)
+            .all()
+        )
+        artist_names = [name for (name,) in artist_names]
+
+        return {
+            "track_id": track.track_id,
+            "name": track.name,
+            "year": track.year,
+            "artists": artist_names
+        }
+    
+    def add_track_to_playlist(self, track_id: str, playlist_id: str):
+        exists = self.session.query(PlaylistTrack).filter_by(track_id=track_id, playlist_id=playlist_id).first()
+        if not exists:
+            new_entry = PlaylistTrack(track_id=track_id, playlist_id=playlist_id)
+            self.session.add(new_entry)
+            self.session.commit()
+            self.get_track_data(track_id)  # Track-Daten abrufen und speichern
+
+    def update_or_create_track_year(self, track_id: str, year: int):
+        track = self.session.query(Track).filter_by(track_id=track_id).first()
+        if track:
+            track.year = year
+        else:
+            track = Track(track_id=track_id, name=None, year=year, popularity=None)
+            self.session.add(track)
+        self.session.commit()

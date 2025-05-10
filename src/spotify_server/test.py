@@ -1,6 +1,4 @@
 from flask import Flask, render_template, request, redirect, session, flash
-import json
-import os
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from spotify_server.trainer import SpotifyTrainer
@@ -9,18 +7,17 @@ import re
 app = Flask(__name__)
 app.secret_key = "geheim"  # für Sessions
 TRACK_DATA_FILE = "track_data.json"
-playlist_id = None
 
 # Spotify API-Konfiguration
 sp = spotipy.Spotify(
     auth_manager = SpotifyOAuth(
         client_id="9b5d8c07f8724ad9b6ad92a7bff7acc1",
         client_secret="8b9484a55f0046e4b0e4768bd52b96a5",
-        redirect_uri="https://spotify.argumente-gegen-rechts.de/callback",
+        # redirect_uri="https://spotify.argumente-gegen-rechts.de/callback",
+        redirect_uri="http://localhost:5000/callback",
         scope="user-read-playback-state user-modify-playback-state"
 ))
 trainer = SpotifyTrainer("training_data.json", sp)
-trainer.load_training_data()  # Beispiel-Playlist-ID
 
 @app.route("/")
 def index():
@@ -43,35 +40,39 @@ def callback():
 @app.route("/set_playlist", methods=["POST"])
 def set_playlist():
     playlist_url = request.form.get("playlist_url")
-    playlist_id = playlist_url.split("/")[-1].split("?")[0]
-    session["playlist_id"] = playlist_id  # Speichern der Playlist-ID in der Session
+    session["playlist_id"] = playlist_url.split("/")[-1].split("?")[0]
+    session["user_id"] = request.form.get("user_id")
     try:
         sp.shuffle(state=True)
-        sp.start_playback(context_uri=f"spotify:playlist:{playlist_id}")  # Spielt Playlist ab
+        sp.start_playback(context_uri=f"spotify:playlist:{session["playlist_id"]}")  # Spielt Playlist ab
         skip()
+    # pylint: disable=W0718
     except Exception as e:
         flash("Kein Aktives Spotify Gerät gefunden. Bitte spiele irgendetwas auf deinem Spotify ab, und versuche es erneut.", "error")
         print(e)
 
-    return redirect("/")
+    return render_template("index.html", user_id=session["user_id"])
 
 @app.route("/play_pause")
 def play_pause():
     try:
         sp.pause_playback() if sp.current_playback()['is_playing'] else sp.start_playback()
+    # pylint: disable=W0718
     except Exception as e:
         flash(str(e), "error")
         print(e)
-    return redirect("/")
+    return render_template("index.html", user_id=session["user_id"])
 
 @app.route("/skip")
 def skip():
     try:
-        sp.start_playback(uris=[f'spotify:track:{trainer.get_next_track(session["playlist_id"])}'])
+        sp.start_playback(uris=[f'spotify:track:{trainer.get_next_track(session["playlist_id"], session["user_id"])}'])
+
+    # pylint: disable=W0718
     except Exception as e:
         flash(str(e), "error")
         print(e)
-    return redirect("/")
+    return render_template("index.html", user_id=session["user_id"])
 
 @app.route("/check_guess", methods=["POST"])
 def check_guess():
@@ -79,30 +80,27 @@ def check_guess():
     guess_year = request.form.get("year_guess")
     guess_artist = request.form.get("artist_guess")
     guess_title = request.form.get("title_guess")
+    session["user_id"] = request.form.get("user_id")
 
     current_playback = sp.current_playback()
     if current_playback is None:
         flash("Kein Song wird gerade abgespielt.", "warning")
         return render_template("index.html", year_guess=guess_year, 
                            artist_guess=guess_artist, 
-                           title_guess=guess_title)
+                           title_guess=guess_title, 
+                           user_id=session["user_id"])
     
     # Auslesen der benötigten Informationen
     track_id = current_playback['item']['id']
-    year = current_playback['item']['album']['release_date'][:4]  # Jahr aus dem Veröffentlichungsdatum
-    artists = [artist['name'] for artist in current_playback['item']['artists']]
-    artist = ", ".join(artists)  # Alle Künstlernamen zu einem String verbinden
-    title = current_playback['item']['name']  # Songtitel
+    track_data = trainer.get_track_data(track_id)
+    year = track_data["year"]  # Jahr aus den Track-Daten
+    artists = ", ".join(track_data["artists"])  # Alle Künstlernamen zu einem String verbinden
+    title = track_data["name"]  # Songtitel
     title = clean_title(title)
-
-    # Prüfen, ob das Jahr in der JSON-Datei gespeichert ist
-    track_data = load_track_data()
-    if track_id in track_data:
-        year = track_data[track_id]  # Falls Jahr gespeichert, überschreibe es
     
     score = trainer.calculate_score({
         "name": title,
-        "artists": artists,
+        "artists": track_data["artists"],
         "year": year,
         "guess_name": guess_title,
         "guess_artist": guess_artist,
@@ -111,8 +109,9 @@ def check_guess():
     flash(f"Score: {score}", "success")
     trainer.update_training(session["playlist_id"], track_id, score)
     return render_template("index.html", year_guess=(guess_year + " (" + str(year) + ")"), 
-                           artist_guess=(guess_artist + " (" + str(artist) + ")"), 
-                           title_guess=(guess_title + " (" + str(title) + ")"))
+                           artist_guess=(guess_artist + " (" + str(artists) + ")"), 
+                           title_guess=(guess_title + " (" + str(title) + ")"), 
+                           user_id=session["user_id"])
 
 @app.route("/save_year", methods=["POST"])
 def save_year():
@@ -127,46 +126,33 @@ def save_year():
     track_id = current_playback['item']['id']
     title = current_playback['item']['name']  # Songtitel
     year = request.form.get("year")
+    session["user_id"] = request.form.get("user_id")
     
     if not year:
         flash("Jahr muss angegeben werden!", "danger")
-        return redirect("/")
+        return render_template("index.html", user_id=session["user_id"])
     
     # Jahr speichern
-    save_track_data(track_id, int(year))
+    trainer.update_or_create_track_year(track_id, int(year))
     flash(f"Jahr für {title} gespeichert!", "success")
-    return redirect("/")
+    return render_template("index.html", user_id=session["user_id"])
+
+
 @app.route("/save_current_track", methods=["POST"])
 def save_current_track():
     current_playback = sp.current_playback()
     if not current_playback or not current_playback["is_playing"]:
         flash("Es läuft aktuell kein Song.", "error")
-        return redirect("/")
+        return render_template("index.html", user_id=session["user_id"])
 
     playlist_id = session["playlist_id"]
-
+    session["user_id"] = request.form.get("user_id")
     track_id = current_playback["item"]["id"]
 
-    # Lade bestehende interne Playlists
-    try:
-        with open("internal_playlists.json", "r") as f:
-            internal_playlists = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        internal_playlists = {}
-
-    # Track zur Playlist-ID hinzufügen
-    if playlist_id not in internal_playlists:
-        internal_playlists[playlist_id] = []
-
-    if track_id not in internal_playlists[playlist_id]:
-        internal_playlists[playlist_id].append(track_id)
-
-    # Speichern
-    with open("internal_playlists.json", "w") as f:
-        json.dump(internal_playlists, f, indent=2)
+    trainer.add_track_to_playlist(track_id, playlist_id)
 
     flash("Track erfolgreich gespeichert.", "success")
-    return redirect("/")
+    return render_template("index.html", user_id=session["user_id"])
 
 @app.route('/stats')
 def stats():
@@ -174,21 +160,6 @@ def stats():
     known_songs = trainer.get_finished_track_count(session["playlist_id"])
     total_trys = trainer.get_try_count(session["playlist_id"])
     return render_template('stats.html', total=total_songs, known=known_songs, trys=total_trys)
-
-
-# Hilfsfunktion, um die Track-Daten zu laden
-def load_track_data():
-    if os.path.exists(TRACK_DATA_FILE):
-        with open(TRACK_DATA_FILE, "r") as file:
-            return json.load(file)
-    return {}
-
-# Hilfsfunktion, um die Track-Daten zu speichern
-def save_track_data(track_id, year):
-    track_data = load_track_data()
-    track_data[track_id] = year
-    with open(TRACK_DATA_FILE, "w") as file:
-        json.dump(track_data, file)
 
 def clean_title(title):
     # Alles in Klammern entfernen

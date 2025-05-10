@@ -24,4 +24,5 @@ src/spotify_server/__pycache__/test.cpython-313.pyc
 src/spotify_server/__pycache__/trainer.cpython-312.pyc
 src/spotify_server/__pycache__/trainer.cpython-313.pyc
 src/spotify_server/templates/index.html
+src/spotify_server/templates/stats.html
 test/tiny_test.py
