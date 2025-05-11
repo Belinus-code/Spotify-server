@@ -61,6 +61,33 @@
 <body>
     <h1>Spotify Trainer</h1>
 
+    <!-- User-ID Eingabe -->
+    <form id="userForm" onsubmit="return false;">
+        <label for="userId">User ID:</label>
+        <input type="number" id="userId" name="user_id" value="0" min="0" required>
+    </form>
+
+    <script>
+        // Immer aktuelle User-ID in versteckte Felder übernehmen
+        function injectUserId() {
+            const userId = document.getElementById("userId").value;
+            document.querySelectorAll('form').forEach(form => {
+                let hidden = form.querySelector('input[name="user_id"]');
+                if (!hidden) {
+                    hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.name = 'user_id';
+                    form.appendChild(hidden);
+                }
+                hidden.value = userId;
+            });
+        }
+
+        // Bei Seitenladezeit & User-ID Änderung
+        window.onload = injectUserId;
+        document.getElementById("userId").addEventListener("input", injectUserId);
+    </script>
+
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}

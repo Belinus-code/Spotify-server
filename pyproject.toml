@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 name = "spotify-server"
 version = "0.1.0"
 description = "Kurzbeschreibung deines Projekts"
-authors = [{ name = "Linus Meinders", email = "linus.meinders@festo.com" }]
+authors = [{ name = "Linus Meinders", email = "linus.meinders@web.de" }]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
@@ -16,7 +16,10 @@ requires-python = ">=3.10"
 dependencies = [
     "spotipy", 
     "flask", 
-    "rapidfuzz"
+    "rapidfuzz", 
+    "sqlalchemy", 
+    "pymysql", 
+    "python-dotenv"
 ]
 
 [project.scripts]
