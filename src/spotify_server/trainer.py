@@ -1,16 +1,20 @@
 import random
+import os
 from sqlalchemy import create_engine, and_
 from sqlalchemy.orm import sessionmaker
 from rapidfuzz import fuzz
 from spotify_server.models import PlaylistTrack, TrainingData, Track, Artist, TrackArtist
+from dotenv import load_dotenv
 
 
 class SpotifyTrainer:
     def __init__(self, training_data_file, sp):
+        load_dotenv()
         self.training_data_file = training_data_file
         self.training_data = {}
         self.sp = sp
-        self.engine = create_engine("mysql+pymysql://ADMIN:Zeppelin@37.120.186.189:3306/spotifytrainer")
+        self.db_url = os.getenv("DB_URL")
+        self.engine = create_engine(self.db_url)
         self.Session = sessionmaker(bind=self.engine)
         self.session = self.Session()
         

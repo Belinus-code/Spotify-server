@@ -18,7 +18,8 @@ dependencies = [
     "flask", 
     "rapidfuzz", 
     "sqlalchemy", 
-    "pymysql"
+    "pymysql", 
+    "python-dotenv"
 ]
 
 [project.scripts]
