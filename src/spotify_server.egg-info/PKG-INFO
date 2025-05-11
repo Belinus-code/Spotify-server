@@ -9,3 +9,4 @@ Requires-Python: >=3.10
 Requires-Dist: spotipy
 Requires-Dist: flask
 Requires-Dist: rapidfuzz
+Requires-Dist: sqlalchemy

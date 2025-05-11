@@ -17,7 +17,8 @@ dependencies = [
     "spotipy", 
     "flask", 
     "rapidfuzz", 
-    "sqlalchemy"
+    "sqlalchemy", 
+    "pymysql"
 ]
 
 [project.scripts]

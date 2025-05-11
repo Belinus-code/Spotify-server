@@ -1,3 +1,4 @@
 spotipy
 flask
 rapidfuzz
+sqlalchemy
