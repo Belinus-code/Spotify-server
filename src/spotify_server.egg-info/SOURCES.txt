@@ -1,4 +1,5 @@
 .cache
+.gitignore
 deploy.sh
 pyproject.toml
 start_spotify_server.ps1

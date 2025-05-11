@@ -3,3 +3,4 @@ flask
 rapidfuzz
 sqlalchemy
 pymysql
+python-dotenv

@@ -11,3 +11,4 @@ Requires-Dist: flask
 Requires-Dist: rapidfuzz
 Requires-Dist: sqlalchemy
 Requires-Dist: pymysql
+Requires-Dist: python-dotenv
