@@ -2,3 +2,4 @@ spotipy
 flask
 rapidfuzz
 sqlalchemy
+pymysql

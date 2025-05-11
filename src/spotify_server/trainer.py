@@ -188,8 +188,10 @@ class SpotifyTrainer:
             score += 1.25
         else:     
             score += (artist_sim / 100) * 0.3
-        
 
+        if score == 5 and (artist_sim < 80 or name_sim < 80):
+            score = 4
+        
         return int(score) if score > 0 else 0  # Score auf 0 setzen, wenn kleiner als 0
     
     def count_tracks_below_threshold(self, playlist_id, threshold):

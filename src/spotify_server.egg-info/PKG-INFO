@@ -10,3 +10,4 @@ Requires-Dist: spotipy
 Requires-Dist: flask
 Requires-Dist: rapidfuzz
 Requires-Dist: sqlalchemy
+Requires-Dist: pymysql
