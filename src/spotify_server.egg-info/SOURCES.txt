@@ -3,6 +3,7 @@
 deploy.sh
 pyproject.toml
 start_spotify_server.ps1
+.vscode/tasks.json
 __pycache__/models.cpython-312.pyc
 dist/spotify_server-0.1.0-py3-none-any.whl
 dist/spotify_server-0.1.0.tar.gz
@@ -23,6 +24,7 @@ src/spotify_server/__pycache__/test.cpython-312.pyc
 src/spotify_server/__pycache__/test.cpython-313.pyc
 src/spotify_server/__pycache__/trainer.cpython-312.pyc
 src/spotify_server/__pycache__/trainer.cpython-313.pyc
+src/spotify_server/static/favicon.png
 src/spotify_server/templates/index.html
 src/spotify_server/templates/stats.html
 test/tiny_test.py
