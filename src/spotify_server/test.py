@@ -13,8 +13,8 @@ sp = spotipy.Spotify(
     auth_manager = SpotifyOAuth(
         client_id="9b5d8c07f8724ad9b6ad92a7bff7acc1",
         client_secret="8b9484a55f0046e4b0e4768bd52b96a5",
-        # redirect_uri="https://spotify.argumente-gegen-rechts.de/callback",
-        redirect_uri="http://localhost:5000/callback",
+        redirect_uri="https://spotify.argumente-gegen-rechts.de/callback",
+        # redirect_uri="http://localhost:5000/callback",
         scope="user-read-playback-state user-modify-playback-state"
 ))
 trainer = SpotifyTrainer("training_data.json", sp)
