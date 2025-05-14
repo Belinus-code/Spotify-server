@@ -3,18 +3,20 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from spotify_server.trainer import SpotifyTrainer
 import re
+from dotenv import load_dotenv
+import os
 
 app = Flask(__name__)
 app.secret_key = "geheim"  # für Sessions
-TRACK_DATA_FILE = "track_data.json"
+
+load_dotenv()
 
 # Spotify API-Konfiguration
 sp = spotipy.Spotify(
     auth_manager = SpotifyOAuth(
-        client_id="9b5d8c07f8724ad9b6ad92a7bff7acc1",
-        client_secret="8b9484a55f0046e4b0e4768bd52b96a5",
-        redirect_uri="https://spotify.argumente-gegen-rechts.de/callback",
-        # redirect_uri="http://localhost:5000/callback",
+        client_id=os.getenv("SPOTIFY_CLIENT_ID"),
+        client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
+        redirect_uri=os.getenv("REDIRECT_URL"),
         scope="user-read-playback-state user-modify-playback-state"
 ))
 trainer = SpotifyTrainer("training_data.json", sp)
@@ -154,11 +156,11 @@ def save_current_track():
     flash("Track erfolgreich gespeichert.", "success")
     return render_template("index.html", user_id=session["user_id"])
 
-@app.route('/stats')
+@app.route('/stats', methods=["POST"])
 def stats():
-    total_songs = trainer.get_active_track_count(session["playlist_id"])
-    known_songs = trainer.get_finished_track_count(session["playlist_id"])
-    total_trys = trainer.get_try_count(session["playlist_id"])
+    total_songs = trainer.get_active_track_count(session["playlist_id"], request.form.get("user_id"))
+    known_songs = trainer.get_finished_track_count(session["playlist_id"], request.form.get("user_id"))
+    total_trys = trainer.get_try_count(session["playlist_id"], request.form.get("user_id"))
     return render_template('stats.html', total=total_songs, known=known_songs, trys=total_trys)
 
 def clean_title(title):

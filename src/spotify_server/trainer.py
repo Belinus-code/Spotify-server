@@ -1,10 +1,12 @@
 import random
 import os
-from sqlalchemy import create_engine, and_
+from sqlalchemy import create_engine, and_, func
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.exc import SQLAlchemyError
 from rapidfuzz import fuzz
 from spotify_server.models import PlaylistTrack, TrainingData, Track, Artist, TrackArtist
 from dotenv import load_dotenv
+import logging
 
 
 class SpotifyTrainer:
@@ -14,12 +16,39 @@ class SpotifyTrainer:
         self.training_data = {}
         self.sp = sp
         self.db_url = os.getenv("DB_URL")
-        self.engine = create_engine(self.db_url)
+        self.engine = create_engine(self.db_url, pool_pre_ping=True, pool_recycle=300)
         self.Session = sessionmaker(bind=self.engine)
         self.session = self.Session()
         
     def get_playlist_tracks(self, playlist_id):
-        return self.session.query(PlaylistTrack).filter_by(playlist_id=playlist_id).all()
+        try:
+            tracks = self.session.query(PlaylistTrack).filter_by(playlist_id=playlist_id).all()
+
+            # Falls keine Einträge in der Playlist vorhanden sind, lade sie von Spotify
+            if not tracks:
+                logging.info(f"Playlist {playlist_id} nicht in DB gefunden  lade von Spotify.")
+                try:
+                    spotify_tracks = self.sp.playlist_tracks(playlist_id)["items"]
+                    for item in spotify_tracks:
+                        track = item.get("track")
+                        if track and "id" in track:
+                            self.get_track_data(track["id"])  # Erstellt SQL-Eintrag falls nötig
+                    # Danach erneut aus DB lesen
+                    tracks = self.session.query(PlaylistTrack).filter_by(playlist_id=playlist_id).all()
+                except Exception as e:
+                    logging.error(f"Fehler beim Nachladen der Playlist {playlist_id} von Spotify: {e}")
+                    return []
+
+            return tracks
+
+        except SQLAlchemyError as e:
+            logging.error(f"Datenbankfehler in get_playlist_tracks({playlist_id}): {e}")
+            self.session.rollback()
+            return []
+
+        except Exception as e:
+            logging.error(f"Allgemeiner Fehler in get_playlist_tracks({playlist_id}): {e}")
+            return []
     
     def initialize_training_data(self, playlist_id: str, user_id: int):
         # 1. Alle Tracks aus der Playlist abrufen
@@ -77,7 +106,6 @@ class SpotifyTrainer:
 
         # 3. Zufälligen Song auswählen und repeat_in_n neu setzen
         song_data = random.choice(active_songs)
-        song_data.repeat_in_n = random.randint(3, 6)
         session.commit()
 
         return song_data.track_id
@@ -197,45 +225,38 @@ class SpotifyTrainer:
             score = 4
         
         return int(score) if score > 0 else 0  # Score auf 0 setzen, wenn kleiner als 0
+
+    def count_tracks_below_threshold(self, playlist_id, user_id, threshold):
+        return (
+            self.session.query(TrainingData)
+        .filter(
+        TrainingData.playlist_id == playlist_id,
+        TrainingData.user_id == user_id,
+        TrainingData.correct_in_row < threshold
+        ).count()
+        )
     
-    def count_tracks_below_threshold(self, playlist_id, threshold):
-        if playlist_id not in self.training_data:
-            return 0
-
-        count = 0
-        for track_data in self.training_data[playlist_id].values():
-            if "correct_in_row" in track_data:
-                if track_data["correct_in_row"] < threshold:
-                    count += 1
-
-        return count
+    def get_try_count(self, playlist_id, user_id):
+        result = (
+            self.session.query(func.sum(TrainingData.revisions))
+            .filter(TrainingData.playlist_id == playlist_id, TrainingData.user_id == user_id)
+            .scalar()
+        )
+        return result or 0
     
-    def get_try_count(self, playlist_id):
-        if playlist_id not in self.training_data:
-            return 0
+    def get_active_track_count(self, playlist_id, user_id):
+        return (
+            self.session.query(TrainingData)
+            .filter(TrainingData.playlist_id == playlist_id, TrainingData.user_id == user_id)
+            .count()
+        )
 
-        count = 0
-        for track_data in self.training_data[playlist_id].values():
-            if "revisions" in track_data:
-                count += track_data["revisions"]
-
-        return count
-    
-    def get_active_track_count(self, playlist_id):
-        if playlist_id not in self.training_data:
-            return 0
-        return len(self.training_data[playlist_id])
-    
-    def get_finished_track_count(self, playlist_id):
-        if playlist_id not in self.training_data:
-            return 0
-
-        count = 0
-        for track_data in self.training_data[playlist_id].values():
-            if "is_done" in track_data and track_data["is_done"]:
-                count += 1
-
-        return count
+    def get_finished_track_count(self, playlist_id, user_id):
+        return (
+            self.session.query(TrainingData)
+            .filter(TrainingData.playlist_id == playlist_id, TrainingData.user_id == user_id, TrainingData.is_done == True)
+            .count()
+        )
     
     def get_track_data(self, track_id: str) -> dict:
         # Track laden oder neu anlegen
