@@ -15,7 +15,6 @@ echo "Installiere & starte neu..."
 ssh root@37.120.186.189 << EOF
   cd Spotify-server
   source venv/bin/activate
-  export DB_URL="mysql+pymysql://ADMIN:Teetasse@37.120.186.189:3306/spotifytrainer"
   pip install --upgrade --force-reinstall /home/root/deploy/*.whl
   systemctl restart spotify-server.service
 EOF
