@@ -21,6 +21,7 @@ class SpotifyTrainer:
         self.session = self.Session()
         
     def get_playlist_tracks(self, playlist_id):
+        self.refresh_session()
         try:
             tracks = self.session.query(PlaylistTrack).filter_by(playlist_id=playlist_id).all()
 
@@ -51,6 +52,7 @@ class SpotifyTrainer:
             return []
     
     def initialize_training_data(self, playlist_id: str, user_id: int):
+        self.refresh_session()
         # 1. Alle Tracks aus der Playlist abrufen
         playlist_tracks = self.get_playlist_tracks(playlist_id)
 
@@ -73,7 +75,7 @@ class SpotifyTrainer:
         self.session.commit()
 
     def get_next_track(self, playlist_id: str, user_id: int):
-
+        self.refresh_session()
         session = self.session  # Session aus der Klasse
 
         # 1. Alle Trainingsdaten mit repeat_in_n <= 0 laden (aktive Songs)
@@ -111,6 +113,7 @@ class SpotifyTrainer:
         return song_data.track_id
 
     def update_training(self, playlist_id: str, track_id: str, score: int, user_id: int = 0):
+        self.refresh_session()
         session = self.session
 
         training_entry = session.query(TrainingData).filter_by(
@@ -163,6 +166,7 @@ class SpotifyTrainer:
         session.commit()
 
     def choose_new_track(self, playlist_id: str, user_id: int = 0):
+        self.refresh_session()
         session = self.session
 
         # Alle Track-IDs aus der Playlist
@@ -227,6 +231,7 @@ class SpotifyTrainer:
         return int(score) if score > 0 else 0  # Score auf 0 setzen, wenn kleiner als 0
 
     def count_tracks_below_threshold(self, playlist_id, user_id, threshold):
+        self.refresh_session()
         return (
             self.session.query(TrainingData)
         .filter(
@@ -237,6 +242,7 @@ class SpotifyTrainer:
         )
     
     def get_try_count(self, playlist_id, user_id):
+        self.refresh_session()
         result = (
             self.session.query(func.sum(TrainingData.revisions))
             .filter(TrainingData.playlist_id == playlist_id, TrainingData.user_id == user_id)
@@ -245,6 +251,7 @@ class SpotifyTrainer:
         return result or 0
     
     def get_active_track_count(self, playlist_id, user_id):
+        self.refresh_session()
         return (
             self.session.query(TrainingData)
             .filter(TrainingData.playlist_id == playlist_id, TrainingData.user_id == user_id)
@@ -252,6 +259,7 @@ class SpotifyTrainer:
         )
 
     def get_finished_track_count(self, playlist_id, user_id):
+        self.refresh_session()
         return (
             self.session.query(TrainingData)
             .filter(TrainingData.playlist_id == playlist_id, TrainingData.user_id == user_id, TrainingData.is_done == True)
@@ -259,6 +267,7 @@ class SpotifyTrainer:
         )
     
     def get_track_data(self, track_id: str) -> dict:
+        self.refresh_session()
         # Track laden oder neu anlegen
         track = self.session.query(Track).filter_by(track_id=track_id).first()
         if not track:
@@ -337,6 +346,7 @@ class SpotifyTrainer:
         }
     
     def add_track_to_playlist(self, track_id: str, playlist_id: str):
+        self.refresh_session()
         exists = self.session.query(PlaylistTrack).filter_by(track_id=track_id, playlist_id=playlist_id).first()
         if not exists:
             new_entry = PlaylistTrack(track_id=track_id, playlist_id=playlist_id)
@@ -345,6 +355,7 @@ class SpotifyTrainer:
             self.get_track_data(track_id)  # Track-Daten abrufen und speichern
 
     def update_or_create_track_year(self, track_id: str, year: int):
+        self.refresh_session()
         track = self.session.query(Track).filter_by(track_id=track_id).first()
         if track:
             track.year = year
@@ -352,3 +363,8 @@ class SpotifyTrainer:
             track = Track(track_id=track_id, name=None, year=year, popularity=None)
             self.session.add(track)
         self.session.commit()
+
+    def refresh_session(self):
+        if self.session:
+            self.session.close()
+        self.session = self.Session()
