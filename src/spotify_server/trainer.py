@@ -1,8 +1,8 @@
 import random
 import os
-from sqlalchemy import create_engine, and_, func
+from sqlalchemy import create_engine, and_, func, text
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, OperationalError
 from rapidfuzz import fuzz
 from spotify_server.models import PlaylistTrack, TrainingData, Track, Artist, TrackArtist
 from dotenv import load_dotenv
@@ -74,7 +74,7 @@ class SpotifyTrainer:
 
         self.session.commit()
 
-    def get_next_track(self, playlist_id: str, user_id: int):
+    def get_next_track(self, playlist_id: str, user_id: int, current_track_id: str = None):
         self.refresh_session()
         session = self.session  # Session aus der Klasse
 
@@ -87,6 +87,8 @@ class SpotifyTrainer:
             )
         ).all()
 
+        debug_counter = 0
+
         if not active_songs:
             # 2. Wenn keine aktiven Songs: alle repeat_in_n um 1 verringern
             all_songs = session.query(TrainingData).filter(
@@ -97,11 +99,13 @@ class SpotifyTrainer:
             ).all()
             for data in all_songs:
                 data.repeat_in_n -= 1
+                debug_counter += 1
             session.commit()
 
             if len(all_songs) == 0:
                 # Wenn keine Songs vorhanden sind, neue Tracks initialisieren
                 self.initialize_training_data(playlist_id, user_id)
+                print(f"Keine aktiven Songs gefunden. Playlist wird initialisiert: {playlist_id}")
 
             # Rekursiver Retry
             return self.get_next_track(playlist_id, user_id)
@@ -110,6 +114,8 @@ class SpotifyTrainer:
         song_data = random.choice(active_songs)
         session.commit()
 
+        if current_track_id and song_data.track_id == current_track_id:
+            print(f"Error: Gleicher Track hintereinander. Counter: {debug_counter}")
         return song_data.track_id
 
     def update_training(self, playlist_id: str, track_id: str, score: int, user_id: int = 0):
@@ -126,6 +132,12 @@ class SpotifyTrainer:
             print("Kein Trainingseintrag gefunden. Breche ab.")
             print(f"Playlist ID: {playlist_id}, Track ID: {track_id}, User ID: {user_id}")
             return
+        
+        if training_entry.correct_guesses < 0:
+            training_entry.correct_guesses = 0
+
+        if training_entry.correct_in_row < 0:
+            training_entry.correct_in_row = 0
 
         # Update Score Logic
         if score == 5:
@@ -162,6 +174,12 @@ class SpotifyTrainer:
 
         training_entry.repeat_in_n = base_gap
         training_entry.revisions += 1
+
+        if training_entry.correct_guesses < 0:
+            print("Trotz Korrektur ist correct_guesses negativ. Bitte überprüfen.")
+
+        if training_entry.correct_in_row < 0:
+            print("Trotz Korrektur ist correct_in_row negativ. Bitte überprüfen.")
 
         session.commit()
 
@@ -205,16 +223,16 @@ class SpotifyTrainer:
         session.add(new_training_entry)
         session.commit()
 
-    def calculate_score(self, object):
+    def calculate_score(self, training_object):
         # Score anhand der richtigkeit der Antwort berechnen
-        if object["guess_name"] is not None:
-            name_sim = fuzz.ratio(object['name'].lower(), object['guess_name'].lower())
+        if training_object["guess_name"] is not None:
+            name_sim = fuzz.ratio(training_object['name'].lower(), training_object['guess_name'].lower())
         else:
             name_sim = 0
         artist_sim = 0
-        for artist in object['artists']:
-            artist_sim = max(artist_sim, fuzz.ratio(artist.lower(), object['guess_artist'].lower()))
-        year_diff = abs(int(object['year']) - int(object['guess_year']))
+        for artist in training_object['artists']:
+            artist_sim = max(artist_sim, fuzz.ratio(artist.lower(), training_object['guess_artist'].lower()))
+        year_diff = abs(int(training_object['year']) - int(training_object['guess_year']))
         score = (5 - min(5, year_diff)) / 2
         if name_sim > 60:
             score += 1.25
@@ -365,6 +383,15 @@ class SpotifyTrainer:
         self.session.commit()
 
     def refresh_session(self):
-        if self.session:
-            self.session.close()
-        self.session = self.Session()
+        try:
+            if self.session:
+                self.session.close()
+            self.session = self.Session()
+            # Test-Query direkt nach Erstellen
+            self.session.execute(text("SELECT 1"))
+        except OperationalError:
+            print("Session ungültig. Engine wird neu aufgebaut")
+            self.engine.dispose()
+            self.engine = create_engine(self.db_url, pool_pre_ping=True, pool_recycle=300)
+            self.Session = sessionmaker(bind=self.engine)
+            self.session = self.Session()
