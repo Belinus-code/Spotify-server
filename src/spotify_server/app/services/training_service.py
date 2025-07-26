@@ -7,6 +7,7 @@ from spotify_server.app.models import Track, User
 from spotify_server.app.services.song_repository import SongRepository
 from spotify_server.app.services.training_repository import TrainingRepository
 from spotify_server.app.services.playback_service import PlaybackService
+from spotify_server.app.services.user_repository import UserRepository
 
 
 class TrainingService:
@@ -19,10 +20,12 @@ class TrainingService:
         song_repository: SongRepository,
         training_repository: TrainingRepository,
         playback_service: PlaybackService,
+        user_repository: UserRepository,
     ):
         self.song_repository = song_repository
         self.training_repository = training_repository
         self.playback_service = playback_service
+        self.user_repository = user_repository
 
     def init_training(self, user_id: str, playlist_id: str):
         """
@@ -83,6 +86,9 @@ class TrainingService:
         indem eine einzige, optimierte Datenbankabfrage genutzt wird.
         """
         # Delegiere die gesamte Logik an die neue Repository-Methode.
+        if type(user_id) is User:
+            user_id = user_id.user_id
+
         most_popular_track = self.song_repository.find_most_popular_untrained_track(
             user_id=user_id, playlist_id=playlist_id
         )
@@ -179,6 +185,8 @@ class TrainingService:
             playlist_id=playlist_id, track_id=track_id, user_id=user_id
         )
 
+        user = self.user_repository.get_user_by_id(user_id)
+
         if training_card is None:
             print("Kein Trainingseintrag gefunden. Breche ab.")
             print(
@@ -194,9 +202,17 @@ class TrainingService:
 
         # Update Score Logic
         if score == 5:
+            user.current_streak += 1
             training_card.correct_guesses += 1
             training_card.correct_in_row += 1
-            base_gap = 10 + training_card.correct_guesses * 5
+            INTERVAL_MODIFIER_BASE = 1.25
+            INTERVAL_MODIFIER = random.uniform(
+                INTERVAL_MODIFIER_BASE - 0.2, INTERVAL_MODIFIER_BASE + 0.2
+            )
+
+            base_gap = round(10 * (INTERVAL_MODIFIER**training_card.correct_in_row)) + 3
+            random_fuzz = random.randint(0, max(1, int(base_gap * 0.05)))
+            base_gap += random_fuzz
 
             below_threshold_count = (
                 self.training_repository.count_tracks_below_threshold(
@@ -215,7 +231,7 @@ class TrainingService:
                 )  # Funktion muss angepasst werden
 
         elif score == 4:
-            base_gap = 10
+            base_gap = 10 + random.randint(0, 3)
         elif score == 3:
             base_gap = random.randint(6, 8)
         elif score == 2:
@@ -227,6 +243,11 @@ class TrainingService:
 
         if score < 4:
             training_card.correct_guesses = max(0, training_card.correct_guesses - 1)
+
+        if score < 5:
+            if user.current_streak > user.max_streak:
+                user.max_streak = user.current_streak
+            user.current_streak = 0
             training_card.correct_in_row = 0
 
         training_card.repeat_in_n = base_gap

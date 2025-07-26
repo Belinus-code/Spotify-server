@@ -20,22 +20,26 @@ class SongRepository:
     def __init__(self, spotify_service: SpotifyService):
         self.spotify_service = spotify_service
 
-    def get_song(self, track_id: str):
+    def get_song(self, track_id: str) -> Track:
+
+        if type(track_id) is Track:
+            track_id = track_id.track_id
         song = Track.query.get(track_id)
 
         if song:
-            artist_names = [artist.name for artist in song.artists]
-            return SongDTO(
-                track_id=track_id, title=song.name, artists=artist_names, year=song.year
-            )
+            return song  # Song existiert bereits in der DB
 
         else:
             song_details = self.spotify_service.get_song_details(track_id)
 
             # Erstelle ein neues Track-Objekt, aber speichere es noch nicht.
             new_track = Track(
-                track_id=track_id, name=song_details["name"], year=song_details["year"]
+                track_id=track_id,
+                name=song_details["title"],
+                year=song_details["year"],
+                popularity=song_details["popularity"],
             )
+            db.session.add(new_track)
 
             # Verarbeite die Künstler: Finde bestehende oder erstelle neue.
             processed_artist_names = []
@@ -51,19 +55,11 @@ class SongRepository:
                 new_track.artists.append(artist)
                 processed_artist_names.append(artist.name)
 
-            # Füge den komplett zusammengebauten neuen Track zur Session hinzu.
-            db.session.add(new_track)
-
             # Speichere alle Änderungen (neuer Track, neue Künstler) in die DB.
             db.session.commit()
 
             # Gib das DTO mit den frisch geholten Daten zurück.
-            return SongDTO(
-                track_id=track_id,
-                title=new_track.name,
-                artists=processed_artist_names,
-                year=new_track.year,
-            )
+            return new_track
 
     def save_new_song(self, new_song: Track):
         """Speichert einen neuen Song in der Datenbank."""
@@ -144,7 +140,7 @@ class SongRepository:
         # Wenn die Playlist existiert und bereits Tracks zugeordnet sind, gib die Objekte zurück.
         if playlist and playlist.tracks:
             print(f"Lade Tracks für Playlist {playlist_id} aus der Datenbank.")
-            return playlist.tracks
+            return [pt.track for pt in playlist.tracks]
 
         # Wenn die Playlist nicht (vollständig) existiert, lade die IDs von Spotify.
         print(f"Lade Tracks für Playlist {playlist_id} von der Spotify-API.")

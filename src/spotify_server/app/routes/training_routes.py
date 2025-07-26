@@ -46,7 +46,12 @@ def create_training_blueprint(
                 404,
             )
 
-        playback_service.play_song(user, next_track.track_id)
+        error = playback_service.play_song(user, next_track.track_id)
+        if error:
+            return (
+                jsonify({"error": "Kein aktiver Spotify-Client gefunden."}),
+                404,
+            )
 
         # Gib die notwendigen IDs an das Frontend zurück
         return jsonify({"playlist_id": playlist_id, "track_id": next_track.track_id})
@@ -128,5 +133,21 @@ def create_training_blueprint(
                 "total_revisions": total_revisions,
             }
         )
+
+    @training_bp.route("/test_new_track", methods=["POST"])
+    def test_new_track():
+        data = request.get_json()
+        user_id = data.get("user_id")
+        playlist_id = data.get("playlist_id")
+
+        # Hole den nächsten Song vom Service
+        new_track = training_service.add_new_song(user_id, playlist_id)
+        if not new_track:
+            return jsonify({"error": "Kein weiterer Song verfügbar."}), 404
+
+        playback_service.play_song(user_id, new_track)
+
+        # Gib die neue Track-ID zurück
+        return jsonify({"track_id": new_track})
 
     return training_bp

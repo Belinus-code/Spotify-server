@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
-from spotify_server.app.models import User
+from spotify_server.app.models import User, Track
 from spotify_server.app.services.user_repository import UserRepository
 from spotify_server.extensions import db
 
@@ -72,23 +72,32 @@ class PlaybackService:
             try:
                 if type(user) is str:
                     user = self.user_repository.get_user_by_id(user)
+                if type(track_id) is Track:
+                    track_id = track_id.track_id
                 track_uri = f"spotify:track:{track_id}"
                 # Der 'uris'-Parameter erwartet eine Liste von Song-URIs
                 sp.start_playback(uris=[track_uri])
             except spotipy.exceptions.SpotifyException as e:
                 print(f"Fehler bei der Wiedergabe: {e}")
+                return TimeoutError
 
     def pause_playback(self, user: User):
         """Pausiert die Wiedergabe für einen User."""
         sp = self._get_user_spotify_client(user)
         if sp:
-            sp.pause_playback()
+            try:
+                sp.pause_playback()
+            except spotipy.exceptions.SpotifyException:
+                return TimeoutError()
 
     def resume_playback(self, user: User):
         """Setzt die Wiedergabe für einen User fort."""
         sp = self._get_user_spotify_client(user)
         if sp:
-            sp.start_playback()
+            try:
+                sp.start_playback()
+            except spotipy.exceptions.SpotifyException:
+                return TimeoutError()
 
     def toggle_play_pause(self, user: User):
         """Wechselt zwischen Pause und Wiedergabe für einen User."""

@@ -9,6 +9,6 @@ Requires-Python: >=3.10
 Requires-Dist: spotipy
 Requires-Dist: flask
 Requires-Dist: rapidfuzz
-Requires-Dist: sqlalchemy
 Requires-Dist: pymysql
 Requires-Dist: python-dotenv
+Requires-Dist: flask-sqlalchemy

@@ -58,6 +58,7 @@ def create_app(config_class=Config):
             song_repository=song_repository,
             training_repository=training_repository,
             playback_service=playback_service,
+            user_repository=user_repository,
         )
 
         # --- 4. Blueprints registrieren ---

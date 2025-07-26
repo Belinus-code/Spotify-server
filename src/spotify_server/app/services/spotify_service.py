@@ -40,6 +40,7 @@ class SpotifyService:
             details = {
                 "title": track_result["name"],
                 "artists": [artist["name"] for artist in track_result["artists"]],
+                "popularity": track_result["popularity"],
                 "year": int(track_result["album"]["release_date"][:4]),
             }
             return details
@@ -50,14 +51,34 @@ class SpotifyService:
 
     def get_playlist_tracks(self, playlist_id: str) -> list[str]:
         """
-        Holt die Titel der Songs in einer Playlist anhand ihrer Spotify ID.
+        Holt die IDs aller Songs in einer Playlist anhand ihrer Spotify ID.
+        Behandelt automatisch die Paginierung für Playlists mit mehr als 100 Songs.
 
-        Gibt eine Liste von Songtiteln zurück oder eine leere Liste bei einem Fehler.
+        Gibt eine Liste von Track-IDs (str) zurück oder eine leere Liste bei einem Fehler.
         """
+        all_track_ids = []
         try:
-            playlist = self.sp.playlist_tracks(playlist_id)
-            tracks = playlist.get("items", [])
-            return [track["track"]["name"] for track in tracks if track["track"]]
+            # Fordere nur die benötigten Felder an, um die Anfrage zu beschleunigen.
+            results = self.sp.playlist_tracks(playlist_id, fields="items.track.id,next")
+            if not results:
+                return []
+
+            # Erste Seite der Ergebnisse verarbeiten
+            for item in results.get("items", []):
+                # Stelle sicher, dass der Track existiert und eine ID hat
+                if item.get("track") and item["track"].get("id"):
+                    # KORREKTUR: Gib die ID zurück, nicht den Namen
+                    all_track_ids.append(item["track"]["id"])
+
+            # Weitere Seiten abrufen, solange es sie gibt
+            while results.get("next"):
+                results = self.sp.next(results)
+                for item in results.get("items", []):
+                    if item.get("track") and item["track"].get("id"):
+                        all_track_ids.append(item["track"]["id"])
+
+            return all_track_ids
+
         except spotipy.exceptions.SpotifyException as e:
             print(f"Fehler bei der Spotify-Anfrage für Playlist {playlist_id}: {e}")
             return []

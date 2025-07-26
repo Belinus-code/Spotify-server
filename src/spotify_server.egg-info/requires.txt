@@ -1,6 +1,6 @@
 spotipy
 flask
 rapidfuzz
-sqlalchemy
 pymysql
 python-dotenv
+flask-sqlalchemy

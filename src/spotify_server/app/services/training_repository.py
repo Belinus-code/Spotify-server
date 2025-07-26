@@ -199,5 +199,5 @@ class TrainingRepository:
         return TrainingData.query.filter(
             TrainingData.user_id == user_id,
             TrainingData.playlist_id == playlist_id,
-            TrainingData.is_done is True,  # oder einfach nur TrainingData.is_done
+            TrainingData.is_done == True,  # oder einfach nur TrainingData.is_done
         ).count()

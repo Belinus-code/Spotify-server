@@ -66,6 +66,9 @@ class Track(db.Model):
     playlists = db.relationship("PlaylistTrack", back_populates="track")
     training_data = db.relationship("TrainingData", back_populates="track")
 
+    def __repr__(self):
+        return f"<Track {self.name}, Year: {self.year})>"
+
 
 class Playlist(db.Model):
     __tablename__ = "playlist"
@@ -123,3 +126,6 @@ class TrainingData(db.Model):
     user = db.relationship("User", back_populates="training_data")
     playlist = db.relationship("Playlist", back_populates="training_data")
     track = db.relationship("Track", back_populates="training_data")
+
+    def __repr__(self):
+        return f"<TrainingData Track: {self.track_id}, repeat_in_n: {self.repeat_in_n}"
