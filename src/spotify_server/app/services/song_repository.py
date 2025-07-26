@@ -214,3 +214,15 @@ class SongRepository:
         )
 
         return most_popular_track
+
+    def get_dto_by_track(self, track: Track) -> SongDTO:
+        """
+        Wandelt ein Track-Objekt in ein DTO um.
+        """
+        return SongDTO(
+            track_id=track.track_id,
+            title=track.name,
+            artists=[artist.name for artist in track.artists],
+            year=track.year,
+            popularity=track.popularity,
+        )

@@ -134,20 +134,4 @@ def create_training_blueprint(
             }
         )
 
-    @training_bp.route("/test_new_track", methods=["POST"])
-    def test_new_track():
-        data = request.get_json()
-        user_id = data.get("user_id")
-        playlist_id = data.get("playlist_id")
-
-        # Hole den nächsten Song vom Service
-        new_track = training_service.add_new_song(user_id, playlist_id)
-        if not new_track:
-            return jsonify({"error": "Kein weiterer Song verfügbar."}), 404
-
-        playback_service.play_song(user_id, new_track)
-
-        # Gib die neue Track-ID zurück
-        return jsonify({"track_id": new_track})
-
     return training_bp

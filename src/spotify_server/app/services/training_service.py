@@ -114,10 +114,11 @@ class TrainingService:
         song = self.song_repository.get_song(track_id)
         if not song:
             raise LookupError(f"Song mit ID {track_id} nicht gefunden.")
+        song = self.song_repository.get_dto_by_track(song)
 
         if user_guess["name"] is not None:
             name_sim = fuzz.ratio(
-                self.clean_title(song.name).lower(), user_guess["name"].lower()
+                self.clean_title(song.title).lower(), user_guess["name"].lower()
             )
         else:
             name_sim = 0
