@@ -25,6 +25,7 @@ src/spotify_server/__pycache__/__init__.cpython-313.pyc
 src/spotify_server/__pycache__/config.cpython-312.pyc
 src/spotify_server/__pycache__/extensions.cpython-312.pyc
 src/spotify_server/__pycache__/models.cpython-312.pyc
+src/spotify_server/__pycache__/run.cpython-312.pyc
 src/spotify_server/__pycache__/test.cpython-312.pyc
 src/spotify_server/__pycache__/test.cpython-313.pyc
 src/spotify_server/__pycache__/trainer.cpython-312.pyc

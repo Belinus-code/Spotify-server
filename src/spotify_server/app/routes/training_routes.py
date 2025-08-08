@@ -4,6 +4,7 @@ from flask import Blueprint, request, jsonify
 from spotify_server.app.services.training_service import TrainingService
 from spotify_server.app.services.playback_service import PlaybackService
 from spotify_server.app.services.user_repository import UserRepository
+from spotify_server.app.services.song_repository import SongRepository
 
 # Annahme: Du hast eine Möglichkeit, den eingeloggten User zu bekommen, z.B. über flask-login
 # from flask_login import current_user, login_required
@@ -14,6 +15,7 @@ def create_training_blueprint(
     training_service: TrainingService,
     playback_service: PlaybackService,
     user_repository: UserRepository,
+    song_repository: SongRepository,
 ):
 
     training_bp = Blueprint("training_api", __name__, url_prefix="/api")
@@ -133,5 +135,27 @@ def create_training_blueprint(
                 "total_revisions": total_revisions,
             }
         )
+
+    @training_bp.route("/save_year", methods=["POST"])
+    def save_year():
+        data = request.get_json()
+        track_id = data.get("track_id")
+        new_year_str = data.get("new_year")
+
+        if not track_id or not new_year_str:
+            return jsonify({"error": "Track-ID oder neues Jahr fehlt"}), 400
+
+        # Rufe die neue Repository-Methode auf
+        success = song_repository.update_track_year(track_id, new_year_str)
+
+        if success:
+            return jsonify({"status": "Jahr aktualisiert"}), 200
+        else:
+            return (
+                jsonify(
+                    {"error": "Track konnte nicht gefunden oder aktualisiert werden"}
+                ),
+                404,
+            )
 
     return training_bp

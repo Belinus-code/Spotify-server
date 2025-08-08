@@ -96,6 +96,8 @@
             margin: 5px 0;
         }
 
+        #admin-controls { border-top: 2px solid #dc3545; margin-top: 20px; padding-top: 20px; }
+
         @media (max-width: 700px) {
             input[type="text"], input[type="number"], input[type="url"] { width: 95%; }
             .button-group { flex-direction: column; }
@@ -133,12 +135,19 @@
                 <button id="guess-btn">Raten</button>
             </div>
             
-            <!-- NEU: Dedizierter Bereich für die richtige Antwort -->
             <div id="answer-area" style="display: none;">
                 <h4>Richtige Antwort</h4>
                 <p><strong>Jahr:</strong> <span id="correct-year"></span></p>
                 <p><strong>Interpret:</strong> <span id="correct-artist"></span></p>
                 <p><strong>Titel:</strong> <span id="correct-title"></span></p>
+            </div>
+
+            <div id="admin-controls" style="display: none;">
+                <h4>Admin: Jahr korrigieren</h4>
+                <div class="input-group">
+                    <input type="number" id="correct-year-input" placeholder="Korrektes Jahr eingeben">
+                    <button id="save-year-btn" class="btn-admin">Jahr speichern</button>
+                </div>
             </div>
             
             <div class="button-group">
@@ -168,6 +177,10 @@
         const correctYearSpan = document.getElementById('correct-year');
         const correctArtistSpan = document.getElementById('correct-artist');
         const correctTitleSpan = document.getElementById('correct-title');
+
+        const adminControls = document.getElementById('admin-controls'); // NEU
+        const correctYearInput = document.getElementById('correct-year-input'); // NEU
+        const saveYearBtn = document.getElementById('save-year-btn'); // NEU
 
         let currentUserId = null;
         let currentPlaylistId = null;
@@ -236,6 +249,12 @@
                 setupSection.style.display = 'none';
                 trainerSection.style.display = 'block';
                 answerArea.style.display = 'none'; // NEU: Antwortbereich beim Start verstecken
+
+                if (currentUserId === '0') {
+                adminControls.style.display = 'block';
+                } else {
+                    adminControls.style.display = 'none';
+                }
             } catch (error) {}
         }
 
@@ -296,12 +315,30 @@
             } catch(error) {}
         }
 
+        async function handleSaveYear() {
+            const newYear = correctYearInput.value;
+            if (!newYear || !currentTrackId) {
+                showNotification('Bitte ein Jahr eingeben.', 'error');
+                return;
+            }
+
+            try {
+                await apiCall('/api/save_year', 'POST', {
+                    track_id: currentTrackId,
+                    new_year: newYear
+                });
+                showNotification(`Jahr für Track ${currentTrackId} erfolgreich auf ${newYear} aktualisiert.`, 'success');
+                correctYearInput.value = ''; // Feld leeren
+            } catch (error) {}
+        }
+
         // ### 5. Event-Listener ###
         setPlaylistBtn.addEventListener('click', handleSetPlaylist);
         playPauseBtn.addEventListener('click', handlePlayPause);
         skipBtn.addEventListener('click', handleSkip);
         guessBtn.addEventListener('click', handleGuess);
         statsBtn.addEventListener('click', handleStats);
+        saveYearBtn.addEventListener('click', handleSaveYear);
 
         // NEU: "Enter" in den Eingabefeldern soll den Raten-Button auslösen
         const guessInputs = [yearGuessInput, artistGuessInput, titleGuessInput];

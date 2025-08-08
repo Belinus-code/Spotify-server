@@ -226,3 +226,22 @@ class SongRepository:
             year=track.year,
             popularity=track.popularity,
         )
+
+    def update_track_year(self, track_id: str, new_year: str) -> bool:
+        """
+        Findet einen Track anhand seiner ID und aktualisiert sein Veröffentlichungsdatum.
+
+        Args:
+            track_id: Die ID des zu aktualisierenden Tracks.
+            new_year: Das neue Jahr.
+
+        Returns:
+            True bei Erfolg, False wenn der Track nicht gefunden wurde.
+        """
+        track = self.get_song(track_id)
+        if not track:
+            return False
+
+        track.release_year = new_year
+        db.session.commit()
+        return True
