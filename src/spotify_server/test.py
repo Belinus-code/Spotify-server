@@ -119,6 +119,10 @@ def check_guess():
     guess_title = request.form.get("title_guess")
     session["user_id"] = request.form.get("user_id")
 
+    if all_have_parentheses(guess_year, guess_artist, guess_title):
+        flash("Ergebnis bereits geprüft! Bitte gib neue Werte ein.", "warning")
+        return render_template("index.html", user_id=session["user_id"])
+
     current_playback = sp.current_playback()
     if current_playback is None:
         flash("Kein Song wird gerade abgespielt.", "warning")
@@ -226,6 +230,10 @@ def clean_title(title):
     title = title.split("-")[0]
     # Whitespace bereinigen
     return title.strip()
+
+
+def all_have_parentheses(a: str, b: str, c: str) -> bool:
+    return all("(" in s and ")" in s for s in [a, b, c])
 
 
 if __name__ == "__main__":
