@@ -153,30 +153,46 @@ class TrainingService:
         # 5. Gib das fertige Dictionary zurück
         return score_result
 
-    def choose_next_song(self, user: User, playlist_id: str) -> Track | None:
+    def choose_next_song(self, user, playlist_id: str) -> Track | None:
         """
-        Wählt nach einer bestimmten Logik die nächste zu wiederholende Lernkarte aus.
-        (Diese Funktion wird von dir implementiert)
+        Wählt den nächsten fälligen Song. Wenn kein Song fällig ist, wird der
+        Zähler für alle Songs um den minimal notwendigen Wert dekrementiert.
         """
-        # Hier kommt deine Logik zur Auswahl des nächsten Songs
-        # z.B. basierend auf 'repeat_in_n' oder anderen Kriterien
-        songs = self.training_repository.get_all_cards(user.user_id, playlist_id)
-        if not songs:
-            self.init_training(user.user_id, playlist_id)
+        active_songs = self.training_repository.get_due_cards(user.user_id, playlist_id)
 
-        active_songs = self.training_repository.get_active_songs(
-            user_id=user.user_id, playlist_id=playlist_id
-        )
-
-        while active_songs is None or len(active_songs) == 0:
-            for song in songs:
-                song.repeat_in_n -= 1
-            active_songs = self.training_repository.get_active_songs(
-                user_id=user.user_id, playlist_id=playlist_id
+        if not active_songs:
+            min_value = self.training_repository.get_min_repeat_value(
+                user.user_id, playlist_id
             )
-        self.song_repository.save_changes()  # Speichert die Änderungen in der Datenbank
 
-        return random.choice(active_songs)
+            if min_value and min_value > 0:
+                self.training_repository.decrement_all_pending_cards_by(
+                    user.user_id, playlist_id, min_value
+                )
+
+            active_songs = self.training_repository.get_due_cards(
+                user.user_id, playlist_id
+            )
+
+        if not active_songs:
+            # Fallback: Wenn immer noch nichts da ist, initialisiere das Training.
+            if (
+                self.training_repository.get_active_track_count(
+                    user.user_id, playlist_id
+                )
+                == 0
+            ):
+                self.init_training(user.user_id, playlist_id)
+                active_songs = self.training_repository.get_due_cards(
+                    user.user_id, playlist_id
+                )
+                if not active_songs:
+                    return None
+            else:
+                return None
+
+        # 5. Wähle einen zufälligen Song aus der Liste der fälligen Songs.
+        return random.choice(active_songs).track
 
     def update_training(
         self, playlist_id: str, track_id: str, score: int, user_id: int = 0

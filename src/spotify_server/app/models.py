@@ -127,5 +127,15 @@ class TrainingData(db.Model):
     playlist = db.relationship("Playlist", back_populates="training_data")
     track = db.relationship("Track", back_populates="training_data")
 
+    # --- HIER IST DER NEUE, PERFORMANTE INDEX ---
+    __table_args__ = (
+        db.Index(
+            "idx_next_card_review",  # Ein sprechender Name für den Index
+            "user_id",
+            "playlist_id",
+            "repeat_in_n",
+        ),
+    )
+
     def __repr__(self):
         return f"<TrainingData Track: {self.track_id}, repeat_in_n: {self.repeat_in_n}"

@@ -201,3 +201,44 @@ class TrainingRepository:
             TrainingData.playlist_id == playlist_id,
             TrainingData.is_done == True,  # oder einfach nur TrainingData.is_done
         ).count()
+
+    def get_min_repeat_value(self, user_id: str, playlist_id: str) -> int | None:
+        """
+        Findet den kleinsten 'repeat_in_n'-Wert unter allen noch nicht
+        erledigten Karten für einen User in einer Playlist.
+        """
+        min_value = (
+            db.session.query(func.min(TrainingData.repeat_in_n))
+            .filter(
+                TrainingData.user_id == user_id, TrainingData.playlist_id == playlist_id
+            )
+            .scalar()
+        )
+
+        return min_value
+
+    def decrement_all_pending_cards_by(
+        self, user_id: str, playlist_id: str, value: int
+    ):
+        """
+        Dekrementiert 'repeat_in_n' für alle noch nicht erledigten Karten
+        um einen bestimmten Wert mit einer einzigen Datenbankabfrage.
+        """
+        db.session.query(TrainingData).filter(
+            TrainingData.user_id == user_id, TrainingData.playlist_id == playlist_id
+        ).update(
+            {TrainingData.repeat_in_n: TrainingData.repeat_in_n - value},
+            synchronize_session=False,
+        )
+        db.session.commit()
+
+    def get_due_cards(self, user_id: str, playlist_id: str) -> list[TrainingData]:
+        """
+        Holt alle Trainingskarten für eine bestimmte User/Playlist-Kombination, die fällig sind.
+        Diese Abfrage ist durch den 'idx_next_card_review' Index optimiert.
+        """
+        return TrainingData.query.filter(
+            TrainingData.user_id == user_id,
+            TrainingData.playlist_id == playlist_id,
+            TrainingData.repeat_in_n <= 0,
+        ).all()
