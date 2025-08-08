@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/static/favicon.png">
+    <title>Spotify Trainer</title>
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"], input[type="number"], input[type="url"] {
+            padding: 12px;
+            width: 80%;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            background-color: #1DB954; /* Spotify Grün */
+            color: white;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #1ed760;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        #notification-area {
+            min-height: 40px;
+            margin: 20px 0;
+        }
+
+        .notification {
+            padding: 10px;
+            border-radius: 4px;
+            color: white;
+            margin-bottom: 10px;
+        }
+
+        .notification.success { background-color: #28a745; }
+        .notification.error { background-color: #dc3545; }
+        .notification.info { background-color: #17a2b8; }
+
+        /* NEU: Styling für den Antwort-Bereich */
+        #answer-area {
+            margin-top: 25px;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background-color: #fafafa;
+            text-align: left;
+        }
+        #answer-area h4 {
+            margin-top: 0;
+            color: #555;
+        }
+        #answer-area p {
+            margin: 5px 0;
+        }
+
+        @media (max-width: 700px) {
+            input[type="text"], input[type="number"], input[type="url"] { width: 95%; }
+            .button-group { flex-direction: column; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Spotify Trainer</h1>
+
+        <div id="notification-area"></div>
+
+        <div id="setup-section">
+            <div class="input-group">
+                <label for="user-id-input">Deine User ID:</label>
+                <input type="number" id="user-id-input" value="0" min="0">
+                <label for="playlist-url-input">Playlist URL:</label>
+                <input type="url" id="playlist-url-input" placeholder="Playlist URL hier einfügen">
+                <button id="set-playlist-btn">Playlist Setzen und Starten</button>
+            </div>
+        </div>
+
+        <div id="trainer-section" style="display: none;">
+            <div class="button-group">
+                <button id="play-pause-btn">Play / Pause</button>
+                <button id="skip-btn">Skip Song</button>
+            </div>
+
+            <h3>Rate das Lied</h3>
+            <div id="guess-form" class="input-group">
+                <input type="text" id="year-guess-input" placeholder="Veröffentlichungsjahr" autocomplete="off">
+                <input type="text" id="artist-guess-input" placeholder="Interpret" autocomplete="off">
+                <input type="text" id="title-guess-input" placeholder="Titel" autocomplete="off">
+                <button id="guess-btn">Raten</button>
+            </div>
+            
+            <!-- NEU: Dedizierter Bereich für die richtige Antwort -->
+            <div id="answer-area" style="display: none;">
+                <h4>Richtige Antwort</h4>
+                <p><strong>Jahr:</strong> <span id="correct-year"></span></p>
+                <p><strong>Interpret:</strong> <span id="correct-artist"></span></p>
+                <p><strong>Titel:</strong> <span id="correct-title"></span></p>
+            </div>
+            
+            <div class="button-group">
+                <button id="stats-btn">Stats anzeigen</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ### 1. DOM-Elemente und Statusvariablen ###
+        const userIdInput = document.getElementById('user-id-input');
+        const playlistUrlInput = document.getElementById('playlist-url-input');
+        const setPlaylistBtn = document.getElementById('set-playlist-btn');
+        const setupSection = document.getElementById('setup-section');
+        const trainerSection = document.getElementById('trainer-section');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const skipBtn = document.getElementById('skip-btn');
+        const guessBtn = document.getElementById('guess-btn');
+        const statsBtn = document.getElementById('stats-btn');
+        const yearGuessInput = document.getElementById('year-guess-input');
+        const artistGuessInput = document.getElementById('artist-guess-input');
+        const titleGuessInput = document.getElementById('title-guess-input');
+        const notificationArea = document.getElementById('notification-area');
+
+        // NEU: DOM-Elemente für den Antwort-Bereich
+        const answerArea = document.getElementById('answer-area');
+        const correctYearSpan = document.getElementById('correct-year');
+        const correctArtistSpan = document.getElementById('correct-artist');
+        const correctTitleSpan = document.getElementById('correct-title');
+
+        let currentUserId = null;
+        let currentPlaylistId = null;
+        let currentTrackId = null;
+
+        // ### 2. API-Kommunikation (Helper-Funktion) ###
+        async function apiCall(endpoint, method = 'POST', body = null) {
+            try {
+                const options = {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                };
+                if (body) {
+                    options.body = JSON.stringify(body);
+                }
+                const response = await fetch(endpoint, options);
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `Serverfehler: ${response.status}`);
+                }
+                if (response.status === 204) return {};
+                return await response.json();
+            } catch (error) {
+                console.error('API-Fehler:', error);
+                showNotification(error.message, 'error');
+                throw error;
+            }
+        }
+
+        // ### 3. UI-Funktionen ###
+        function showNotification(message, type = 'info') {
+            notificationArea.innerHTML = '';
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            notificationArea.appendChild(notification);
+            setTimeout(() => {
+                notification.style.transition = 'opacity 0.5s';
+                notification.style.opacity = '0';
+                setTimeout(() => notification.remove(), 500);
+            }, 5000);
+        }
+
+        function clearGuessInputs() {
+            yearGuessInput.value = '';
+            artistGuessInput.value = '';
+            titleGuessInput.value = '';
+        }
+
+        // ### 4. Event-Handler (Logik der App) ###
+        async function handleSetPlaylist() {
+            currentUserId = userIdInput.value;
+            const playlistUrl = playlistUrlInput.value;
+            if (!currentUserId || !playlistUrl) {
+                showNotification('Bitte User-ID und Playlist-URL eingeben.', 'error');
+                return;
+            }
+            try {
+                const response = await apiCall('/api/set_playlist', 'POST', {
+                    user_id: currentUserId,
+                    playlist_url: playlistUrl
+                });
+                currentPlaylistId = response.playlist_id;
+                currentTrackId = response.track_id;
+                showNotification(`Playlist gesetzt! Erster Song wird geladen...`, 'success');
+                setupSection.style.display = 'none';
+                trainerSection.style.display = 'block';
+                answerArea.style.display = 'none'; // NEU: Antwortbereich beim Start verstecken
+            } catch (error) {}
+        }
+
+        async function handleGuess() {
+            const guessData = {
+                user_id: currentUserId,
+                playlist_id: currentPlaylistId,
+                track_id: currentTrackId,
+                year: yearGuessInput.value,
+                artist: artistGuessInput.value,
+                name: titleGuessInput.value,
+            };
+            try {
+                const response = await apiCall('/api/check_guess', 'POST', guessData);
+                
+                // GEÄNDERT: Score in die Benachrichtigung, Antwort in den permanenten Bereich
+                showNotification(`Dein Score für diese Runde: ${response.score}`, 'info');
+
+                correctYearSpan.textContent = response.correct_answer.year;
+                correctArtistSpan.textContent = response.correct_answer.artist;
+                correctTitleSpan.textContent = response.correct_answer.title;
+                answerArea.style.display = 'block'; // Antwortbereich anzeigen
+
+
+            } catch (error) {}
+        }
+        
+        async function handlePlayPause() {
+            try {
+                await apiCall('/api/play_pause', 'POST', { user_id: currentUserId });
+                showNotification('Play/Pause-Befehl gesendet.', 'info');
+            } catch(error) {}
+        }
+
+        async function handleSkip(showMsg = true) {
+            clearGuessInputs();
+            answerArea.style.display = 'none'; // NEU: Antwortbereich beim Skippen verstecken
+            try {
+                const response = await apiCall('/api/skip', 'POST', { 
+                    user_id: currentUserId,
+                    playlist_id: currentPlaylistId
+                });
+                currentTrackId = response.track_id;
+                if (showMsg) {
+                    showNotification('Nächster Song geladen.', 'info');
+                }
+            } catch(error) {}
+        }
+
+        async function handleStats() {
+            try {
+                const response = await apiCall('/api/stats', 'POST', {
+                    user_id: currentUserId,
+                    playlist_id: currentPlaylistId
+                });
+                const statsMessage = `Fertige Tracks: ${response.finished_tracks}, Aktive Tracks: ${response.active_tracks}, Gesamtversuche: ${response.total_revisions}`;
+                showNotification(statsMessage, 'info');
+            } catch(error) {}
+        }
+
+        // ### 5. Event-Listener ###
+        setPlaylistBtn.addEventListener('click', handleSetPlaylist);
+        playPauseBtn.addEventListener('click', handlePlayPause);
+        skipBtn.addEventListener('click', handleSkip);
+        guessBtn.addEventListener('click', handleGuess);
+        statsBtn.addEventListener('click', handleStats);
+
+        // NEU: "Enter" in den Eingabefeldern soll den Raten-Button auslösen
+        const guessInputs = [yearGuessInput, artistGuessInput, titleGuessInput];
+        guessInputs.forEach(input => {
+            input.addEventListener('keyup', function(event) {
+                // Prüfen, ob die gedrückte Taste die Enter-Taste war
+                if (event.key === 'Enter') {
+                    // Verhindert das Standardverhalten (z.B. Formular absenden und Seite neu laden)
+                    event.preventDefault();
+                    // Löst den Klick auf den "Raten"-Button aus
+                    guessBtn.click();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

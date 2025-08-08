@@ -17,13 +17,13 @@ dependencies = [
     "spotipy", 
     "flask", 
     "rapidfuzz", 
-    "sqlalchemy", 
     "pymysql", 
-    "python-dotenv"
+    "python-dotenv",
+    "flask-sqlalchemy"
 ]
 
 [project.scripts]
-spotify-server = "spotify_server.test:cli"
+spotify-server = "spotify_server.run:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
