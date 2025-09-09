@@ -194,6 +194,10 @@ class TrainingService:
                 f"Playlist ID: {playlist_id}, Track ID: {track_id}, User ID: {user_id}"
             )
             return
+        
+        if training_card.repeat_in_n != 0:
+            print("Karte ist nicht fällig für ein Update. Breche ab.")
+            return
 
         if training_card.correct_guesses < 0:
             training_card.correct_guesses = 0
