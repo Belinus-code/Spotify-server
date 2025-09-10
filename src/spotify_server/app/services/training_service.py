@@ -8,6 +8,7 @@ from spotify_server.app.services.song_repository import SongRepository
 from spotify_server.app.services.training_repository import TrainingRepository
 from spotify_server.app.services.playback_service import PlaybackService
 from spotify_server.app.services.user_repository import UserRepository
+from spotify_server.helpers import format_update, format_result, format_error
 
 
 class TrainingService:
@@ -40,14 +41,13 @@ class TrainingService:
 
         # Annahme: song_repository kann alle Tracks einer Playlist holen.
         # Dies könnte auch in einem separaten PlaylistRepository liegen.
+        yield format_update("Initialisiere neues Trainig...")
         all_tracks_in_playlist = self.song_repository.get_playlist_tracks(
             playlist_id=playlist_id
         )
 
         if not all_tracks_in_playlist:
-            print(
-                "Keine Tracks in der Playlist gefunden oder Playlist existiert nicht."
-            )
+            yield format_error("Keine Tracks in der Playlist gefunden oder Playlist existiert nicht.")
             return
 
         # Finde heraus, für welche Tracks bereits Karten existieren
@@ -63,6 +63,8 @@ class TrainingService:
             if track.track_id not in trained_track_ids
         ]
 
+        yield format_update("Lege neue Lernkarten an...")
+
         if not untrained_tracks:
             return
 
@@ -77,8 +79,6 @@ class TrainingService:
             self.training_repository.create_new_card(
                 user_id=user_id, playlist_id=playlist_id, track_id=track.track_id
             )
-
-        print(f"{len(tracks_to_add)} neue Lernkarten wurden erstellt.")
 
     def add_new_song(self, user_id: str, playlist_id: str) -> str | None:
         """

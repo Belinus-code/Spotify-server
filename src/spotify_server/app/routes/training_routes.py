@@ -1,9 +1,11 @@
 """Modul für die Trainings-Routen der Spotify-Server-App."""
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response
+import json
 from spotify_server.app.services.training_service import TrainingService
 from spotify_server.app.services.playback_service import PlaybackService
 from spotify_server.app.services.user_repository import UserRepository
+from spotify_server.helpers import format_update, format_result, format_error
 
 # Annahme: Du hast eine Möglichkeit, den eingeloggten User zu bekommen, z.B. über flask-login
 # from flask_login import current_user, login_required
@@ -25,36 +27,35 @@ def create_training_blueprint(
     @training_bp.route("/set_playlist", methods=["POST"])
     def set_playlist():
         data = request.get_json()
-        if not data or "user_id" not in data or "playlist_url" not in data:
-            return (
-                jsonify({"error": "Benötigte Daten fehlen: user_id, playlist_url"}),
-                400,
-            )
+        def generate_progress():
 
-        user_id = data.get("user_id")
-        playlist_url = data.get("playlist_url")
+            if not data or "user_id" not in data or "playlist_url" not in data:
+                yield format_error("Benötigte Daten fehlen: user_id, playlist_url")
+                return
 
-        playlist_id = playlist_url.split("/")[-1].split("?")[0]
+            user_id = data.get("user_id")
+            playlist_url = data.get("playlist_url")
 
-        # Initialisiere das Training und hole den ersten Song
-        user = user_repository.get_user_by_id(user_id)
-        next_track = training_service.choose_next_song(user, playlist_id)
+            playlist_id = playlist_url.split("/")[-1].split("?")[0]
 
-        if not next_track:
-            return (
-                jsonify({"error": "Kein Song in der Playlist zum Starten gefunden."}),
-                404,
-            )
+            # Initialisiere das Training und hole den ersten Song
+            user = user_repository.get_user_by_id(user_id)
+            next_track = training_service.choose_next_song(user, playlist_id)
 
-        error = playback_service.play_song(user, next_track.track_id)
-        if error:
-            return (
-                jsonify({"error": "Kein aktiver Spotify-Client gefunden."}),
-                404,
-            )
+            if not next_track:
+                yield format_error("Kein Song in der Playlist zum Starten gefunden.")
+                return
 
-        # Gib die notwendigen IDs an das Frontend zurück
-        return jsonify({"playlist_id": playlist_id, "track_id": next_track.track_id})
+            error = playback_service.play_song(user, next_track.track_id)
+            if error:
+                yield format_error("Kein aktiver Spotify-Client gefunden.")
+                return
+
+            # Gib die notwendigen IDs an das Frontend zurück
+            yield format_result({"playlist_id": playlist_id, "track_id": next_track.track_id})
+        
+        return Response(generate_progress(), mimetype='text/event-stream')
+
 
     @training_bp.route("/check_guess", methods=["POST"])
     def check_guess():
@@ -135,3 +136,4 @@ def create_training_blueprint(
         )
 
     return training_bp
+
