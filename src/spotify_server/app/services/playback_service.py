@@ -43,7 +43,6 @@ class PlaybackService:
         # Prüfen, ob der Access Token abgelaufen ist
         if datetime.utcnow() >= user.spotify_token_expires_at:
             print("Spotify Access Token ist abgelaufen. Erneuere...")
-            t_refresh_start = time.time()
             try:
                 # Token mit dem Refresh Token erneuern
                 new_token_info = self.auth_manager.refresh_access_token(
@@ -59,11 +58,7 @@ class PlaybackService:
                     seconds=new_token_info["expires_in"]
                 )
 
-                t_db_start = time.time()
                 db.session.commit()
-                print(f"[TIMING] Token Refresh DB Commit: {(time.time() - t_db_start) * 1000:.2f}ms")
-
-                print(f"[TIMING] Token Refresh Gesamt: {(time.time() - t_refresh_start) * 1000:.2f}ms")
                 print("Token erfolgreich erneuert und gespeichert.")
             # pylint: disable=W0718
             except Exception as e:
@@ -91,24 +86,13 @@ class PlaybackService:
 
     def pause_playback(self, user: User):
         """Pausiert die Wiedergabe für einen User."""
-        start_total = time.time()
-
-        t1 = time.time()
         sp = self._get_user_spotify_client(user)
-        duration_client = (time.time() - t1) * 1000
-        print(f"[TIMING] _get_user_spotify_client: {duration_client:.2f}ms")
 
         if sp:
             try:
-                t2 = time.time()
                 sp.pause_playback()
-                duration_api = (time.time() - t2) * 1000
-                print(f"[TIMING] sp.pause_playback (Spotify API): {duration_api:.2f}ms")
             except spotipy.exceptions.SpotifyException:
                 return TimeoutError()
-
-        duration_total = (time.time() - start_total) * 1000
-        print(f"[TIMING] GESAMT pause_playback: {duration_total:.2f}ms")
 
     def resume_playback(self, user: User):
         """Setzt die Wiedergabe für einen User fort."""
@@ -120,19 +104,28 @@ class PlaybackService:
                 return TimeoutError()
 
     def toggle_play_pause(self, user: User):
-        """Wechselt zwischen Pause und Wiedergabe für einen User."""
+        """
+        Wechselt zwischen Pause und Wiedergabe für einen User.
+        """
         sp = self._get_user_spotify_client(user)
+
         if sp is None:
             return
+
         try:
-            (
-                sp.pause_playback()
-                if sp.current_playback()["is_playing"]
-                else sp.start_playback()
-            )
-        # pylint: disable=W0718
-        except Exception:
-            pass
+            sp.pause_playback()
+
+        except spotipy.exceptions.SpotifyException as e:
+            if e.http_status == 403 or e.http_status == 500:  # 500er kommen bei Spotify State-Fehlern auch mal vor
+                try:
+                    sp.start_playback()
+                except spotipy.exceptions.SpotifyException:
+                    pass
+            else:
+                print(f"[ERROR] Pause fehlgeschlagen mit unerwartetem Fehler: {e}", flush=True)
+
+        except Exception as e:
+            print(f"[ERROR] Allgemeiner Fehler bei toggle: {e}", flush=True)
 
     def get_current_id(self, user: User) -> str | None:
         """Holt die aktuelle Song-ID für einen User."""
