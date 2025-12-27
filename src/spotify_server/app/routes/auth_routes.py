@@ -1,104 +1,95 @@
-"""Modul für die Authentifizierungs-Routen der Spotify-Server-App."""
-
-from flask import (
-    Blueprint,
-    redirect,
-    request,
-    session,
-    url_for,
-    render_template,
-    send_from_directory,
-)
-from datetime import datetime
+from datetime import datetime, timedelta
+from flask import Blueprint, redirect, request, session, url_for, render_template
+from spotipy.oauth2 import SpotifyOAuth
 import spotipy
 
+from spotify_server.config import Config
+from spotify_server.app.services.user_repository import UserRepository
 
-# Annahme: Deine User- und DB-Objekte sind hier importierbar
-from spotify_server.app.models import User
-from spotify_server.extensions import db
+bp = Blueprint("auth", __name__)
+user_repo = UserRepository()
 
 
-def create_auth_blueprint(playback_service):
-    """Factory, um das Auth-Blueprint zu erstellen."""
+def get_spotify_auth():
+    """Konfiguriert den OAuth Manager."""
+    return SpotifyOAuth(
+        client_id=Config.SPOTIFY_CLIENT_ID,
+        client_secret=Config.SPOTIFY_CLIENT_SECRET,
+        redirect_uri=Config.SPOTIFY_REDIRECT_URI,
+        # Scopes: Playback steuern, Private Playlists lesen, User Details lesen
+        scope="user-read-private user-read-email user-modify-playback-state user-read-playback-state playlist-read-private",
+        show_dialog=True  # WICHTIG: Erzwingt das Spotify-Login-Fenster (für Account-Wechsel)
+    )
 
-    auth_bp = Blueprint("auth", __name__)
 
-    @auth_bp.route("/")
-    def index():
-        if "token_info" not in session:
-            return redirect(url_for("auth.login"))
+@bp.route("/", methods=["GET"])
+def index():
+    """Startseite."""
+    user = None
+    if "user_id" in session:
+        user = user_repo.get_user_by_id(session["user_id"])
 
-        token_info = session["token_info"]
-        if datetime.utcnow() > datetime.fromtimestamp(token_info["expires_at"]):
-            return redirect(url_for("auth.login"))
+    return render_template("index.html", user=user)
 
-        return render_template("index.html")
 
-    @auth_bp.route("/login")
-    def login():
-        """Leitet den User zur Spotify-Login-Seite weiter."""
-        # Holt die Authorisierungs-URL vom PlaybackService
-        auth_url = playback_service.auth_manager.get_authorize_url()
-        return redirect(auth_url)
+@bp.route("/login")
+def login():
+    """Startet den Login-Prozess -> Redirect zu Spotify."""
+    auth_manager = get_spotify_auth()
+    auth_url = auth_manager.get_authorize_url()
+    return redirect(auth_url)
 
-    @auth_bp.route("/callback")
-    def callback():
-        """
-        Wird von Spotify nach dem Login aufgerufen.
-        Verarbeitet die Tokens und speichert sie.
-        """
-        # Tausche den Code aus der URL gegen Access- und Refresh-Tokens
-        code = request.args.get("code")
-        token_info = playback_service.auth_manager.get_access_token(code)
 
-        # Speichere die Tokens in der Session für die aktuelle Sitzung
-        # Wichtig: expires_at ist ein Unix-Timestamp, den wir speichern
-        token_info["expires_at"] = (
-            datetime.utcnow().timestamp() + token_info["expires_in"]
-        )
-        session["token_info"] = token_info
+@bp.route("/logout")
+def logout():
+    """Beendet die Session."""
+    session.clear()
+    return redirect(url_for("auth.index"))
 
-        # Identifiziere den User bei Spotify, um ihn in unserer DB zu finden oder anzulegen
-        sp = spotipy.Spotify(auth=token_info["access_token"])
-        spotify_user_info = sp.current_user()
-        user_id = spotify_user_info["id"]
 
-        # Finde oder erstelle den User in unserer Datenbank
-        user = User.query.get({"user_id": user_id})
-        if not user:
-            user = User(
-                user_id=user_id,
-                username=spotify_user_info.get("display_name", user_id),
-            )
-            db.session.add(user)
+@bp.route("/callback")
+def callback():
+    """
+    Rückkehr von Spotify.
+    Holt Token, Identifiziert User via API und loggt ihn ein.
+    """
+    auth_manager = get_spotify_auth()
+    code = request.args.get("code")
 
-        # Speichere die langlebigen Tokens in der Datenbank
-        user.spotify_access_token = token_info["access_token"]
-        user.spotify_refresh_token = token_info.get(
-            "refresh_token", user.spotify_refresh_token
-        )  # Nur updaten, wenn ein neuer kommt
-        user.spotify_token_expires_at = datetime.fromtimestamp(token_info["expires_at"])
-
-        db.session.commit()
-
-        # Speichere unsere interne User-ID in der Session
-        session["user_id"] = user.user_id
-
-        # Leite zur Hauptseite zurück
+    if not code:
+        # Falls User "Abbrechen" geklickt hat
         return redirect(url_for("auth.index"))
 
-    @auth_bp.route("/logout")
-    def logout():
-        """Löscht die Session und loggt den User aus."""
-        session.clear()
-        # Optional: Den User zur Spotify-Logout-Seite leiten
-        # return redirect("https://www.spotify.com/logout/")
-        return redirect(url_for("auth.login"))
+    try:
+        # 1. Access Token tauschen
+        token_info = auth_manager.get_access_token(code)
+        access_token = token_info["access_token"]
 
-    # Route für das Favicon, hier logisch platziert
-    @auth_bp.route("/favicon.ico")
-    def favicon():
-        # Annahme: Der static_folder ist im app-Objekt korrekt konfiguriert
-        return send_from_directory("static", "favicon.png")
+        # 2. User-Daten von Spotify laden (wir brauchen die ID!)
+        sp = spotipy.Spotify(auth=access_token)
+        spotify_user_data = sp.current_user()
 
-    return auth_bp
+        spotify_id = spotify_user_data["id"]
+        # Falls kein Display Name gesetzt ist, fallback auf ID
+        display_name = spotify_user_data.get("display_name") or spotify_id
+
+        # Ablaufzeit berechnen
+        expires_at = datetime.utcnow() + timedelta(seconds=token_info["expires_in"])
+
+        # 3. User in DB anlegen oder updaten
+        user = user_repo.create_or_update_spotify_user(
+            spotify_id=spotify_id,
+            display_name=display_name,
+            access_token=access_token,
+            refresh_token=token_info.get("refresh_token"),
+            expires_at=expires_at
+        )
+
+        # 4. User ID in die Flask Session schreiben -> Eingeloggt
+        session["user_id"] = user.user_id
+
+        return redirect(url_for("auth.index"))
+
+    except Exception as e:
+        print(f"[AUTH ERROR] Fehler im Callback: {e}")
+        return f"Fehler beim Login: {e}", 500

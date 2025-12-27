@@ -54,3 +54,4 @@ src/spotify_server/app/services/__pycache__/user_repository.cpython-312.pyc
 src/spotify_server/app/static/favicon.png
 src/spotify_server/app/templates/index.html
 test/tiny_test.py
+test/toggle_test.py
