@@ -10,6 +10,14 @@ bp = Blueprint("auth", __name__)
 user_repo = UserRepository()
 
 
+def create_auth_blueprint(playback_service=None):
+    """
+    FIX: Diese Funktion hat gefehlt. 
+    Die __init__.py braucht sie, um den Blueprint zu laden.
+    """
+    return bp
+
+
 def get_spotify_auth():
     """Konfiguriert den OAuth Manager."""
     return SpotifyOAuth(
