@@ -47,3 +47,11 @@ class UserRepository:
 
         db.session.commit()
         return user
+
+    def update_user_tokens(self, user: User, access_token: str, expires_at, refresh_token: str = ""):
+        """Aktualisiert nur die Tokens eines Users."""
+        user.spotify_access_token = access_token
+        user.spotify_token_expires_at = expires_at
+        if refresh_token:
+            user.spotify_refresh_token = refresh_token
+        db.session.commit()

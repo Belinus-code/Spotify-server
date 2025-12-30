@@ -11,170 +11,342 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             text-align: center;
-            padding: 20px;
+            padding: 10px;
             background-color: #f4f4f9;
             color: #333;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .container {
-            max-width: 600px;
-            margin: 0 auto;
+            width: 100%;
+            max-width: 700px;
             background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            max-height: 95vh;
+            overflow-y: auto;
         }
 
+        /* --- Header Row --- */
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        h1 {
+            margin: 0;
+            font-weight: 700;
+            color: #191414;
+            font-size: 1.5rem;
+            text-align: left;
+        }
+
+        .user-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-badge {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: #f0f0f0;
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.85rem;
+        }
+
+        .logout-btn {
+            text-decoration: none;
+            color: #d32f2f;
+            border: 1px solid #d32f2f;
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            transition: all 0.2s ease;
+        }
+
+        .logout-btn:hover {
+            background-color: #d32f2f;
+            color: white;
+        }
+
+        /* --- Form Elements --- */
         .input-group {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 15px;
-            margin-bottom: 20px;
+            gap: 10px;
+            margin-bottom: 10px;
+            width: 100%;
         }
 
         input[type="text"], input[type="number"], input[type="url"] {
-            padding: 12px;
-            width: 80%;
-            font-size: 16px;
+            padding: 10px;
+            width: 100%;
+            font-size: 15px;
             border: 1px solid #ddd;
-            border-radius: 4px;
+            border-radius: 8px;
+            box-sizing: border-box;
         }
 
+        input:focus {
+            outline: none;
+            border-color: #1DB954;
+        }
+
+        h3 {
+            margin: 10px 0;
+            font-size: 1.1rem;
+            color: #666;
+        }
+
+        /* --- Buttons --- */
         button, .btn-link {
-            padding: 12px 24px;
-            font-size: 16px;
+            padding: 10px 20px;
+            font-size: 15px;
+            font-weight: 600;
             cursor: pointer;
             border: none;
-            border-radius: 4px;
-            background-color: #1DB954; /* Spotify Grün */
+            border-radius: 50px;
+            background-color: #1DB954;
             color: white;
-            transition: background-color 0.3s;
+            transition: transform 0.1s, background-color 0.3s;
             text-decoration: none;
             display: inline-block;
         }
 
         button:hover, .btn-link:hover {
             background-color: #1ed760;
+            transform: scale(1.02);
         }
+
+        button:active { transform: scale(0.98); }
+        button:disabled { background-color: #ccc; cursor: not-allowed; transform: none; }
+
+        .btn-secondary { background-color: #535353; }
+        .btn-secondary:hover { background-color: #666; }
+
+        .btn-info { background-color: #2e77d0; }
+        .btn-info:hover { background-color: #408bea; }
 
         .button-group {
             display: flex;
             gap: 10px;
             justify-content: center;
-            margin: 20px 0;
+            margin: 15px 0;
+            align-items: center; /* Wichtig für Alignment mit Switch */
         }
 
+        /* --- Auto Skip Switch --- */
+        .switch-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            color: #555;
+            margin-left: 10px; /* Abstand zum Skip Button */
+        }
+
+        /* Der eigentliche Switch (versteckt die Checkbox) */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 34px;
+            height: 20px;
+        }
+
+        .switch input { 
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 14px;
+            width: 14px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #1DB954;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(14px);
+        }
+
+
+        /* --- Notifications & Answer Area --- */
         #notification-area {
-            min-height: 40px;
-            margin: 20px 0;
+            min-height: 35px;
+            margin: 5px 0 15px;
         }
 
         .notification {
-            padding: 10px;
-            border-radius: 4px;
+            padding: 8px 12px;
+            border-radius: 6px;
             color: white;
-            margin-bottom: 10px;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
         }
 
-        .notification.success { background-color: #28a745; }
-        .notification.error { background-color: #dc3545; }
-        .notification.info { background-color: #17a2b8; }
+        .notification.success { background-color: #1db954; }
+        .notification.error { background-color: #e91429; }
+        .notification.info { background-color: #2e77d0; }
 
-        /* Styling für den Antwort-Bereich */
         #answer-area {
-            margin-top: 25px;
+            margin-top: 15px;
             padding: 15px;
-            border: 1px solid #e0e0e0;
+            border: 1px solid #eee;
             border-radius: 8px;
             background-color: #fafafa;
             text-align: left;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
         }
+        
         #answer-area h4 {
-            margin-top: 0;
-            color: #555;
-        }
-        #answer-area p {
-            margin: 5px 0;
+            grid-column: 1 / -1;
+            margin: 0 0 10px 0;
+            color: #333;
+            border-bottom: 2px solid #1DB954;
+            display: inline-block;
+            font-size: 1rem;
+            width: fit-content;
         }
         
-        .header-info {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-            font-size: 0.9rem;
+        #answer-area .result-item { font-size: 0.95rem; }
+        #answer-area .result-label {
+            font-weight: bold;
+            display: block;
             color: #666;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 10px;
-        }
-        
-        .logout-link {
-            color: #d32f2f;
-            text-decoration: none;
+            font-size: 0.8rem;
+            margin-bottom: 2px;
         }
 
-        @media (max-width: 700px) {
-            input[type="text"], input[type="number"], input[type="url"] { width: 95%; }
-            .button-group { flex-direction: column; }
+        @media (max-width: 600px) {
+            .container { padding: 15px; height: auto; max-height: none; }
+            body { display: block; height: auto; }
+            .header-row { flex-direction: column; gap: 10px; align-items: flex-start; }
+            .user-controls { align-self: flex-end; }
+            #answer-area { grid-template-columns: 1fr; }
+            .button-group { flex-wrap: wrap; } /* Damit Switch bei Platzmangel umbricht */
         }
     </style>
 </head>
 
 <body>
     <div class="container">
-        <h1>Hitster Trainer</h1>
+        <div class="header-row">
+            <h1>Hitster Trainer</h1>
+            {% if user %}
+                <div class="user-controls">
+                    <div class="user-badge">
+                        <span>👤 {{ user.username }}</span>
+                    </div>
+                    <a href="{{ url_for('auth.logout') }}" class="logout-btn">Logout</a>
+                </div>
+            {% endif %}
+        </div>
 
         <div id="notification-area"></div>
 
         {% if user %}
-            <!-- EINGELOGGT: Zeige Spiel-Interface -->
-            
-            <div class="header-info">
-                <span>User: <strong>{{ user.username }}</strong></span>
-                <a href="{{ url_for('auth.logout') }}" class="logout-link">Abmelden</a>
-            </div>
+            <!-- EINGELOGGT -->
 
             <div id="setup-section">
                 <div class="input-group">
-                    <!-- User ID ist jetzt versteckt und kommt vom Server -->
                     <input type="hidden" id="user-id-input" value="{{ user.user_id }}">
                     
-                    <label for="playlist-url-input">Playlist URL:</label>
-                    <input type="url" id="playlist-url-input" placeholder="Spotify Playlist URL einfügen">
-                    <button id="set-playlist-btn">Playlist Laden & Starten</button>
+                    <label for="playlist-url-input" style="font-weight: 600; color: #555;">Playlist auswählen</label>
+                    <input type="url" id="playlist-url-input" placeholder="Spotify Playlist URL hier einfügen">
+                    <div class="button-group">
+                        <button id="set-playlist-btn">Laden & Starten</button>
+                    </div>
                 </div>
             </div>
 
             <div id="trainer-section" style="display: none;">
-                <div class="button-group">
-                    <button id="play-pause-btn">Play / Pause</button>
-                    <button id="skip-btn" style="background-color: #666;">Skip Song</button>
+                <!-- Controls: Play, Skip, Auto-Skip Switch -->
+                <div class="button-group" style="margin-top: 0;">
+                    <button id="play-pause-btn">⏯ Play/Pause</button>
+                    <button id="skip-btn" class="btn-secondary">⏭ Skip</button>
+                    
+                    <!-- NEU: Auto Skip Switch -->
+                    <div class="switch-container" title="Bei perfekter Antwort automatisch weiter">
+                        <label class="switch">
+                            <input type="checkbox" id="auto-skip-toggle" checked> <!-- Standard: AN -->
+                            <span class="slider"></span>
+                        </label>
+                        <span>Auto Skip</span>
+                    </div>
                 </div>
 
                 <h3>Rate das Lied</h3>
+                
                 <div id="guess-form" class="input-group">
-                    <input type="text" id="year-guess-input" placeholder="Veröffentlichungsjahr" autocomplete="off">
-                    <input type="text" id="artist-guess-input" placeholder="Interpret" autocomplete="off">
+                    <div style="display: flex; gap: 10px; width: 100%;">
+                        <input type="text" id="year-guess-input" placeholder="Jahr" autocomplete="off" style="flex: 1;">
+                        <input type="text" id="artist-guess-input" placeholder="Interpret" autocomplete="off" style="flex: 2;">
+                    </div>
                     <input type="text" id="title-guess-input" placeholder="Titel" autocomplete="off">
-                    <button id="guess-btn">Raten</button>
+                    
+                    <button id="guess-btn" style="width: 100%; margin-top: 5px;">Antwort prüfen</button>
                 </div>
                 
                 <div id="answer-area" style="display: none;">
                     <h4>Ergebnis</h4>
-                    <p><strong>Jahr:</strong> <span id="correct-year"></span></p>
-                    <p><strong>Interpret:</strong> <span id="correct-artist"></span></p>
-                    <p><strong>Titel:</strong> <span id="correct-title"></span></p>
+                    <div class="result-item">
+                        <span class="result-label">Jahr</span>
+                        <span id="correct-year"></span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Interpret</span>
+                        <span id="correct-artist"></span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Titel</span>
+                        <span id="correct-title"></span>
+                    </div>
                 </div>
                 
                 <div class="button-group">
-                    <button id="stats-btn" style="background-color: #17a2b8;">Stats anzeigen</button>
+                    <button id="stats-btn" class="btn-info" style="padding: 8px 15px; font-size: 0.9rem;">📊 Statistik</button>
                 </div>
             </div>
 
-            <!-- Scripts nur laden, wenn eingeloggt -->
             <script>
-                // ### 1. DOM-Elemente und Statusvariablen ###
+                // ### 1. DOM-Elemente ###
                 const userIdInput = document.getElementById('user-id-input');
                 const playlistUrlInput = document.getElementById('playlist-url-input');
                 const setPlaylistBtn = document.getElementById('set-playlist-btn');
@@ -184,35 +356,35 @@
                 const skipBtn = document.getElementById('skip-btn');
                 const guessBtn = document.getElementById('guess-btn');
                 const statsBtn = document.getElementById('stats-btn');
+                const autoSkipToggle = document.getElementById('auto-skip-toggle'); // NEU
+                
                 const yearGuessInput = document.getElementById('year-guess-input');
                 const artistGuessInput = document.getElementById('artist-guess-input');
                 const titleGuessInput = document.getElementById('title-guess-input');
                 const notificationArea = document.getElementById('notification-area');
 
-                // Antwort-Elemente
                 const answerArea = document.getElementById('answer-area');
                 const correctYearSpan = document.getElementById('correct-year');
                 const correctArtistSpan = document.getElementById('correct-artist');
                 const correctTitleSpan = document.getElementById('correct-title');
 
-                let currentUserId = userIdInput.value; // Initiale ID vom Hidden Field
+                let currentUserId = userIdInput.value;
                 let currentPlaylistId = null;
                 let currentTrackId = null;
 
-                // ### 2. API-Kommunikation (Helper-Funktion) ###
+                // ### 2. API Helper ###
                 async function apiCall(endpoint, method = 'POST', body = null) {
                     try {
                         const options = {
                             method: method,
                             headers: { 'Content-Type': 'application/json' },
                         };
-                        if (body) {
-                            options.body = JSON.stringify(body);
-                        }
+                        if (body) options.body = JSON.stringify(body);
+                        
                         const response = await fetch(endpoint, options);
                         if (!response.ok) {
                             const errorData = await response.json().catch(() => ({}));
-                            throw new Error(errorData.error || `Serverfehler: ${response.status}`);
+                            throw new Error(errorData.error || `Fehler: ${response.status}`);
                         }
                         if (response.status === 204) return {};
                         return await response.json();
@@ -223,18 +395,19 @@
                     }
                 }
 
-                // ### 3. UI-Funktionen ###
-                function showNotification(message, type = 'info') {
+                // ### 3. UI Funktionen ###
+                function showNotification(message, type = 'info', duration = 4000) {
                     notificationArea.innerHTML = '';
                     const notification = document.createElement('div');
                     notification.className = `notification ${type}`;
                     notification.textContent = message;
                     notificationArea.appendChild(notification);
+                    
                     setTimeout(() => {
                         notification.style.transition = 'opacity 0.5s';
                         notification.style.opacity = '0';
                         setTimeout(() => notification.remove(), 500);
-                    }, 5000);
+                    }, duration);
                 }
 
                 function clearGuessInputs() {
@@ -243,16 +416,18 @@
                     titleGuessInput.value = '';
                 }
 
-                // ### 4. Event-Handler (Logik der App) ###
+                // ### 4. Logik ###
                 async function handleSetPlaylist() {
-                    // Update currentUserId from DOM (just in case)
                     currentUserId = userIdInput.value;
                     const playlistUrl = playlistUrlInput.value;
                     
-                    if (!currentUserId || !playlistUrl) {
-                        showNotification('Bitte Playlist-URL eingeben.', 'error');
+                    if (!playlistUrl) {
+                        showNotification('Bitte eine Playlist-URL eingeben.', 'error');
                         return;
                     }
+                    setPlaylistBtn.disabled = true;
+                    setPlaylistBtn.textContent = "Lädt...";
+                    
                     try {
                         const response = await apiCall('/api/set_playlist', 'POST', {
                             user_id: currentUserId,
@@ -260,12 +435,15 @@
                         });
                         currentPlaylistId = response.playlist_id;
                         currentTrackId = response.track_id;
-                        showNotification(`Playlist gesetzt! Erster Song wird geladen...`, 'success');
+                        showNotification(`Playlist bereit!`, 'success');
                         
                         setupSection.style.display = 'none';
                         trainerSection.style.display = 'block';
                         answerArea.style.display = 'none';
-                    } catch (error) {}
+                    } catch (error) {
+                        setPlaylistBtn.disabled = false;
+                        setPlaylistBtn.textContent = "Laden & Starten";
+                    }
                 }
 
                 async function handleGuess() {
@@ -277,38 +455,55 @@
                         artist: artistGuessInput.value,
                         name: titleGuessInput.value,
                     };
+                    
+                    guessBtn.disabled = true; // Doppelklicks verhindern
+
                     try {
                         const response = await apiCall('/api/check_guess', 'POST', guessData);
                         
-                        showNotification(`Score: ${response.score}`, 'info');
+                        const scoreEmoji = response.score > 4 ? '🔥' : (response.score > 0 ? '👍' : '🤔');
+                        showNotification(`${scoreEmoji} Score: ${response.score}`, 'info');
 
                         correctYearSpan.textContent = response.correct_answer.year;
                         correctArtistSpan.textContent = response.correct_answer.artist;
                         correctTitleSpan.textContent = response.correct_answer.title;
-                        answerArea.style.display = 'block';
+                        answerArea.style.display = 'grid';
 
-                    } catch (error) {}
+                        // NEU: Auto Skip Logik
+                        if (autoSkipToggle.checked && response.score === 5) {
+                            showNotification("Perfekt! Nächster Song in 1,5s...", "success", 1500);
+                            setTimeout(() => {
+                                handleSkip(true); 
+                            }, 1500);
+                        }
+
+                    } catch (error) {
+                    } finally {
+                        guessBtn.disabled = false;
+                    }
                 }
                 
                 async function handlePlayPause() {
                     try {
                         await apiCall('/api/play_pause', 'POST', { user_id: currentUserId });
-                        // Keine Notification, stört nur beim Spielen
                     } catch(error) {}
                 }
 
                 async function handleSkip(showMsg = true) {
+                    // UI sofort zurücksetzen für flüssiges Gefühl
                     clearGuessInputs();
                     answerArea.style.display = 'none';
+                    
+                    // Fokus auf das Jahr-Input setzen, damit man direkt weitertippen kann
+                    yearGuessInput.focus();
+
                     try {
                         const response = await apiCall('/api/skip', 'POST', { 
                             user_id: currentUserId,
                             playlist_id: currentPlaylistId
                         });
                         currentTrackId = response.track_id;
-                        if (showMsg) {
-                            showNotification('Nächster Song geladen.', 'info');
-                        }
+                        if (showMsg) showNotification('Nächster Song!', 'info', 2000);
                     } catch(error) {}
                 }
 
@@ -318,24 +513,22 @@
                             user_id: currentUserId,
                             playlist_id: currentPlaylistId
                         });
-                        const statsMessage = `Fertig: ${response.finished_tracks} | Aktiv: ${response.active_tracks} | Versuche: ${response.total_revisions}`;
-                        showNotification(statsMessage, 'info');
+                        const msg = `Fertig: ${response.finished_tracks} | Aktiv: ${response.active_tracks} | Versuche: ${response.total_revisions}`;
+                        showNotification(msg, 'info');
                     } catch(error) {}
                 }
 
-                // ### 5. Event-Listener ###
+                // ### 5. Event Listener ###
                 setPlaylistBtn.addEventListener('click', handleSetPlaylist);
                 playPauseBtn.addEventListener('click', handlePlayPause);
-                skipBtn.addEventListener('click', handleSkip);
+                skipBtn.addEventListener('click', () => handleSkip(true));
                 guessBtn.addEventListener('click', handleGuess);
                 statsBtn.addEventListener('click', handleStats);
 
-                // Enter-Taste Support
-                const guessInputs = [yearGuessInput, artistGuessInput, titleGuessInput];
-                guessInputs.forEach(input => {
-                    input.addEventListener('keyup', function(event) {
-                        if (event.key === 'Enter') {
-                            event.preventDefault();
+                [yearGuessInput, artistGuessInput, titleGuessInput].forEach(input => {
+                    input.addEventListener('keyup', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
                             guessBtn.click();
                         }
                     });
@@ -343,10 +536,16 @@
             </script>
 
         {% else %}
-            <!-- NICHT EINGELOGGT: Zeige Login Button -->
-            <div class="input-group" style="margin-top: 50px;">
-                <p>Bitte melde dich mit Spotify an, um deine Trainingsdaten zu speichern.</p>
-                <a href="{{ url_for('auth.login') }}" class="btn-link">
+            <!-- NICHT EINGELOGGT -->
+            <div class="header-row">
+                <h1>Hitster Trainer</h1>
+            </div>
+            
+            <div style="margin-top: 40px; padding: 20px;">
+                <p style="font-size: 1.1rem; color: #555; margin-bottom: 30px;">
+                    Trainiere dein Musikwissen mit deiner eigenen Spotify Playlist.
+                </p>
+                <a href="{{ url_for('auth.login') }}" class="btn-link" style="padding: 15px 40px; font-size: 1.1rem;">
                     Mit Spotify anmelden
                 </a>
             </div>

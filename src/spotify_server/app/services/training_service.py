@@ -104,7 +104,6 @@ class TrainingService:
     def calculate_score(self, user_guess: dict, user_id: str) -> int:
         """
         Berechnet den Score basierend auf der Antwort des Nutzers.
-        (Diese Funktion wird von dir implementiert)
         """
         # Hier kommt deine Logik zum Berechnen der Punkte
         track_id = self.playback_service.get_current_id(user_id)
@@ -194,7 +193,7 @@ class TrainingService:
                 f"Playlist ID: {playlist_id}, Track ID: {track_id}, User ID: {user_id}"
             )
             return
-        
+
         if training_card.repeat_in_n != 0:
             print("Karte ist nicht fällig für ein Update. Breche ab.")
             return
@@ -210,9 +209,9 @@ class TrainingService:
             user.current_streak += 1
             training_card.correct_guesses += 1
             training_card.correct_in_row += 1
-            INTERVAL_MODIFIER_BASE = 1.25
+            INTERVAL_MODIFIER_BASE = 1.35
             INTERVAL_MODIFIER = random.uniform(
-                INTERVAL_MODIFIER_BASE - 0.2, INTERVAL_MODIFIER_BASE + 0.2
+                INTERVAL_MODIFIER_BASE - 0.1, INTERVAL_MODIFIER_BASE + 0.3
             )
 
             base_gap = round(10 * (INTERVAL_MODIFIER**training_card.correct_in_row)) + 3
@@ -247,13 +246,13 @@ class TrainingService:
             base_gap = random.randint(1, 3)
 
         if score < 4:
-            training_card.correct_guesses = max(0, training_card.correct_guesses - 1)
+            training_card.correct_guesses = max(0, training_card.correct_in_row - 1)
+            training_card.correct_in_row = 0
 
         if score < 5:
             if user.current_streak > user.max_streak:
                 user.max_streak = user.current_streak
             user.current_streak = 0
-            training_card.correct_in_row = 0
 
         training_card.repeat_in_n = base_gap
         training_card.revisions += 1

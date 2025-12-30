@@ -5,8 +5,6 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from spotify_server.app.models import User, Track
 from spotify_server.app.services.user_repository import UserRepository
-from spotify_server.extensions import db
-import time
 
 
 class PlaybackService:
@@ -25,13 +23,24 @@ class PlaybackService:
             scope="user-modify-playback-state user-read-playback-state",
         )
         self.user_repository = user_repository
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.redirect_uri = redirect_uri
+
+    def _get_oauth_manager(self):
+        """Erstellt einen SpotifyOAuth Manager für Refresh-Operationen."""
+        return SpotifyOAuth(
+            client_id=self.client_id,
+            client_secret=self.client_secret,
+            redirect_uri=self.redirect_uri
+        )
 
     def _get_user_spotify_client(self, user: User) -> spotipy.Spotify | None:
         """
         Erstellt eine Spotipy-Instanz für einen User.
         Prüft den Token und erneuert ihn bei Bedarf automatisch.
         """
-        if type(user) is str:
+        if isinstance(user, str):
             user = self.user_repository.get_user_by_id(user)
             if user is None:
                 return None
@@ -40,32 +49,36 @@ class PlaybackService:
             print(f"User {user.username} hat Spotify nicht verbunden.")
             return None
 
-        # Prüfen, ob der Access Token abgelaufen ist
-        if datetime.utcnow() >= user.spotify_token_expires_at:
-            print("Spotify Access Token ist abgelaufen. Erneuere...")
+        # Prüfen, ob der Access Token abgelaufen ist (oder in den nächsten 60s abläuft)
+        # Wir geben ihm 60s Puffer.
+        now = datetime.utcnow()
+        if user.spotify_token_expires_at and user.spotify_token_expires_at <= (now + timedelta(seconds=60)):
+            print(f"[TOKEN] Token für User {user.username} ist abgelaufen. Erneuere...")
             try:
-                # Token mit dem Refresh Token erneuern
-                new_token_info = self.auth_manager.refresh_access_token(
-                    user.spotify_refresh_token
-                )
+                oauth = self._get_oauth_manager()
+                # refresh_access_token gibt ein Dict mit neuem access_token, expires_in, etc. zurück
+                token_info = oauth.refresh_access_token(user.spotify_refresh_token)
 
-                # Neue Token-Daten in der DB speichern
-                user.spotify_access_token = new_token_info["access_token"]
-                user.spotify_refresh_token = new_token_info.get(
-                    "refresh_token", user.spotify_refresh_token
-                )  # Spotify sendet nicht immer einen neuen Refresh Token
-                user.spotify_token_expires_at = datetime.utcnow() + timedelta(
-                    seconds=new_token_info["expires_in"]
-                )
+                if token_info:
+                    new_access_token = token_info['access_token']
+                    new_expires_at = now + timedelta(seconds=token_info['expires_in'])
+                    new_refresh_token = token_info.get('refresh_token')  # Manchmal gibt es auch einen neuen Refresh Token
 
-                db.session.commit()
-                print("Token erfolgreich erneuert und gespeichert.")
-            # pylint: disable=W0718
+                    # In DB speichern
+                    self.user_repository.update_user_tokens(
+                        user,
+                        new_access_token,
+                        new_expires_at,
+                        new_refresh_token
+                    )
+
+                    print(f"[TOKEN] Token erfolgreich erneuert für {user.username}.")
+
             except Exception as e:
-                print(f"Fehler beim Erneuern des Tokens für User {user.id}: {e}")
+                print(f"[TOKEN ERROR] Fehler beim Erneuern des Tokens für User {user.user_id}: {e}")
+                # Im Fehlerfall machen wir weiter und hoffen das Beste, oder returnen None
                 return None
 
-        # Erstelle den Client mit dem gültigen Access Token
         return spotipy.Spotify(auth=user.spotify_access_token)
 
     def play_song(self, user: User, track_id: str):
