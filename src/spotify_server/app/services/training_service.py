@@ -226,13 +226,14 @@ class TrainingService:
 
             if (
                 base_gap > 25
-                and not training_card.is_done
-                and below_threshold_count < 15
+                and (not training_card.is_done
+                     and below_threshold_count < 15)
+                or self.training_repository.get_active_track_count(user_id, playlist_id) - self.training_repository.get_finished_track_count(user_id, playlist_id) < 15
             ):
                 training_card.is_done = True
                 self.add_new_song(
                     playlist_id=playlist_id, user_id=user_id
-                )  # Funktion muss angepasst werden
+                )
 
         elif score == 4:
             base_gap = 10 + random.randint(0, 3)
