@@ -36,6 +36,7 @@ class TrainingRepository:
             print(f"Karte für Track {track_id} existiert bereits für User {user_id}.")
             return existing_card
 
+        
         # Wenn keine Karte existiert, eine neue erstellen
         print(f"Erstelle neue Karte für Track {track_id} für User {user_id}.")
         new_card = TrainingData(

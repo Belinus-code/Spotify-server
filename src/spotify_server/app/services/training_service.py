@@ -3,11 +3,13 @@
 import random
 import re
 from rapidfuzz import fuzz
+from typing import Any
 from spotify_server.app.models import Track, User
 from spotify_server.app.services.song_repository import SongRepository
 from spotify_server.app.services.training_repository import TrainingRepository
 from spotify_server.app.services.playback_service import PlaybackService
 from spotify_server.app.services.user_repository import UserRepository
+from spotify_server.app.services.spotify_service import SpotifyService
 
 
 class TrainingService:
@@ -97,11 +99,11 @@ class TrainingService:
             return most_popular_track.track_id
         else:
             print(
-                f"User {user_id} lernt bereits alle Songs aus Playlist {playlist_id}."
+                f"User {user_id} lernt bereits alle Songs aus Playlist {playlist_id}.", flush=True
             )
             return None
 
-    def calculate_score(self, user_guess: dict, user_id: str) -> int:
+    def calculate_score(self, user_guess: dict, user_id: str) -> dict[str, Any]:
         """
         Berechnet den Score basierend auf der Antwort des Nutzers.
         """
@@ -178,7 +180,7 @@ class TrainingService:
         return random.choice(active_songs)
 
     def update_training(
-        self, playlist_id: str, track_id: str, score: int, user_id: int = 0
+        self, playlist_id: str, track_id: str, score: int, user_id: str = "0"
     ):
 
         training_card = self.training_repository.get_card(
@@ -186,6 +188,8 @@ class TrainingService:
         )
 
         user = self.user_repository.get_user_by_id(user_id)
+        if user is None:
+            raise ValueError()
 
         if training_card is None:
             print("Kein Trainingseintrag gefunden. Breche ab.")
@@ -218,22 +222,12 @@ class TrainingService:
             random_fuzz = random.randint(0, max(1, int(base_gap * 0.05)))
             base_gap += random_fuzz
 
-            below_threshold_count = (
-                self.training_repository.count_tracks_below_threshold(
-                    playlist_id=playlist_id, user_id=user_id, threshold=3
-                )
-            )
-
-            if (
-                base_gap > 25
-                and (not training_card.is_done
-                     and below_threshold_count < 15)
-                or self.training_repository.get_active_track_count(user_id, playlist_id) - self.training_repository.get_finished_track_count(user_id, playlist_id) < 15
-            ):
+            print(f"base gap: {base_gap}", flush=True)
+            if base_gap > 25:
                 training_card.is_done = True
-                self.add_new_song(
-                    playlist_id=playlist_id, user_id=user_id
-                )
+                self.ensure_training_songs(user_id, playlist_id, 15)
+            else:
+                print("schlecht", flush=True)
 
         elif score == 4:
             base_gap = 10 + random.randint(0, 3)
@@ -265,6 +259,24 @@ class TrainingService:
             print("Trotz Korrektur ist correct_in_row negativ. Bitte überprüfen.")
 
         self.training_repository.save_card()
+
+    def ensure_training_songs(self, user_id: str, playlist_id: str, amount: int):
+
+        all_songs = self.training_repository.get_active_track_count(user_id, playlist_id)
+        finished_songs = self.training_repository.get_finished_track_count(user_id, playlist_id)
+        below_threshold_count = (
+            self.training_repository.count_tracks_below_threshold(
+                playlist_id=playlist_id, user_id=user_id, threshold=3
+            )
+        )
+        if (all_songs - finished_songs) + below_threshold_count < amount:
+            song_id = self.add_new_song(user_id, playlist_id)
+            if song_id is None:
+                return
+            self.song_repository.get_song(song_id)
+            self.training_repository.create_new_card(
+                user_id=user_id, playlist_id=playlist_id, track_id=song_id
+            )
 
     def clean_title(self, title):
         """Bereinigt den Titel eines Songs von unnötigen Informationen."""

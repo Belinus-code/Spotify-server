@@ -140,8 +140,10 @@ class PlaybackService:
         except Exception as e:
             print(f"[ERROR] Allgemeiner Fehler bei toggle: {e}", flush=True)
 
-    def get_current_id(self, user: User) -> str | None:
+    def get_current_id(self, user: User | str) -> str | None:
         """Holt die aktuelle Song-ID für einen User."""
+        if isinstance(user, str):
+            user = self.user_repository.get_user_by_id(user)
         sp = self._get_user_spotify_client(user)
         if sp:
             current_playback = sp.current_playback()

@@ -31,6 +31,8 @@ class SongRepository:
 
         else:
             song_details = self.spotify_service.get_song_details(track_id)
+            if song_details is None:
+                raise Exception
 
             # Erstelle ein neues Track-Objekt, aber speichere es noch nicht.
             new_track = Track(
