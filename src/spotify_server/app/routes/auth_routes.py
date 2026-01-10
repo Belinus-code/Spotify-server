@@ -7,14 +7,16 @@ from spotify_server.config import Config
 from spotify_server.app.services.user_repository import UserRepository
 
 bp = Blueprint("auth", __name__)
-user_repo = UserRepository()
+user_repo = None
 
 
-def create_auth_blueprint(playback_service=None):
+def create_auth_blueprint(user_repository: UserRepository):
     """
-    FIX: Diese Funktion hat gefehlt. 
+    FIX: Diese Funktion hat gefehlt.
     Die __init__.py braucht sie, um den Blueprint zu laden.
     """
+    global user_repo
+    user_repo = user_repository
     return bp
 
 
@@ -33,6 +35,7 @@ def get_spotify_auth():
 @bp.route("/", methods=["GET"])
 def index():
     """Startseite."""
+    assert user_repo is not None
     user = None
     if "user_id" in session:
         user = user_repo.get_user_by_id(session["user_id"])
@@ -76,6 +79,8 @@ def callback():
         # 2. User-Daten von Spotify laden (wir brauchen die ID!)
         sp = spotipy.Spotify(auth=access_token)
         spotify_user_data = sp.current_user()
+        if spotify_user_data is None:
+            raise Exception
 
         spotify_id = spotify_user_data["id"]
         # Falls kein Display Name gesetzt ist, fallback auf ID
@@ -85,6 +90,7 @@ def callback():
         expires_at = datetime.utcnow() + timedelta(seconds=token_info["expires_in"])
 
         # 3. User in DB anlegen oder updaten
+        assert user_repo is not None
         user = user_repo.create_or_update_spotify_user(
             spotify_id=spotify_id,
             display_name=display_name,

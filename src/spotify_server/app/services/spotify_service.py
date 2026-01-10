@@ -37,12 +37,16 @@ class SpotifyService:
 
             # Extrahiere nur die Daten, die wir wirklich brauchen.
             # Das entkoppelt den Rest der App von der komplexen Spotify-Struktur.
+            if track_result["name"] is None:
+                raise Exception
+
             details = {
                 "title": track_result["name"],
                 "artists": [artist["name"] for artist in track_result["artists"]],
                 "popularity": track_result["popularity"],
                 "year": int(track_result["album"]["release_date"][:4]),
             }
+            print(details, flush=True)
             return details
 
         except spotipy.exceptions.SpotifyException as e:
@@ -60,7 +64,7 @@ class SpotifyService:
         try:
             # Fordere nur die benötigten Felder an, um die Anfrage zu beschleunigen.
             results = self.sp.playlist_tracks(playlist_id, fields="items.track.id,next")
-            if not results:
+            if results is None:
                 return []
 
             # Erste Seite der Ergebnisse verarbeiten

@@ -4,6 +4,7 @@ from flask import Blueprint, request, jsonify
 from spotify_server.app.services.training_service import TrainingService
 from spotify_server.app.services.playback_service import PlaybackService
 from spotify_server.app.services.user_repository import UserRepository
+from spotify_server.app.services.spotify_service import SpotifyService
 
 # Annahme: Du hast eine Möglichkeit, den eingeloggten User zu bekommen, z.B. über flask-login
 # from flask_login import current_user, login_required
@@ -14,6 +15,7 @@ def create_training_blueprint(
     training_service: TrainingService,
     playback_service: PlaybackService,
     user_repository: UserRepository,
+    spotify_service: SpotifyService
 ):
 
     training_bp = Blueprint("training_api", __name__, url_prefix="/api")
@@ -38,6 +40,8 @@ def create_training_blueprint(
 
         # Initialisiere das Training und hole den ersten Song
         user = user_repository.get_user_by_id(user_id)
+        if user is None:
+            raise Exception
         next_track = training_service.choose_next_song(user, playlist_id)
 
         if not next_track:
@@ -65,10 +69,12 @@ def create_training_blueprint(
         score_result = training_service.calculate_score(
             data, data["user_id"]
         )  # Annahme: calculate_score verarbeitet das dict
+        score = score_result.get("score")
+        assert isinstance(score, int)
         training_service.update_training(
             data["playlist_id"],
             data["track_id"],
-            score_result.get("score"),
+            score,
             data["user_id"],
         )
         # Gib das Ergebnis als JSON zurück
@@ -89,6 +95,8 @@ def create_training_blueprint(
         user_id = data.get("user_id")
         playlist_id = data.get("playlist_id")
         user = user_repository.get_user_by_id(user_id)
+        if user is None:
+            raise Exception
 
         # Hole den nächsten Song vom Service
         next_track = training_service.choose_next_song(user, playlist_id)
@@ -105,9 +113,17 @@ def create_training_blueprint(
         data = request.get_json()
         user_id = data.get("user_id")
         user = user_repository.get_user_by_id(user_id)
+        if user is None:
+            raise Exception
         playback_service.toggle_play_pause(user)
 
         return jsonify({"status": "ok"}), 200  # Einfache Bestätigung
+
+    @training_bp.route("/test_new_song", methods=["POST"])
+    def test_new_song():
+        data = request.get_json()
+        result = spotify_service.get_song_details(data.get("song_id"))
+        return jsonify({"status": "ok", "results": result}), 200
 
     @training_bp.route("/stats", methods=["POST"])
     def stats():

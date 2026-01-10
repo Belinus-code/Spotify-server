@@ -21,47 +21,54 @@ class SongRepository:
         self.spotify_service = spotify_service
 
     def get_song(self, track_id: str) -> Track:
-
         if type(track_id) is Track:
             track_id = track_id.track_id
+
+        # Versuche, den Song aus der Datenbank zu laden
         song = Track.query.get(track_id)
 
+        # Prüfung auf Vollständigkeit:
+        # Existiert der Song UND hat er einen Namen UND ein gültiges Jahr UND zugewiesene Künstler?
         if song:
-            return song  # Song existiert bereits in der DB
+            # Hinweis: .artists ist eine Liste; 'if song.artists' ist wahr, wenn sie nicht leer ist.
+            if song.name is not None and song.year != -1 and song.artists:
+                return song  # Song ist vollständig und kann zurückgegeben werden
 
-        else:
-            song_details = self.spotify_service.get_song_details(track_id)
-            if song_details is None:
-                raise Exception
+        # Falls der Song fehlt oder unvollständig ist: Daten von Spotify laden
+        song_details = self.spotify_service.get_song_details(track_id)
 
-            # Erstelle ein neues Track-Objekt, aber speichere es noch nicht.
-            new_track = Track(
-                track_id=track_id,
-                name=song_details["title"],
-                year=song_details["year"],
-                popularity=song_details["popularity"],
-            )
-            db.session.add(new_track)
+        if song_details is None or not song_details.get("title") or not song_details.get("artists"):
+            raise Exception(f"Konnte keine vollständigen Details für Track {track_id} von Spotify laden.")
 
-            # Verarbeite die Künstler: Finde bestehende oder erstelle neue.
-            processed_artist_names = []
-            for artist_name in song_details["artists"]:
-                # Prüfe, ob der Künstler bereits in der DB existiert.
-                artist = Artist.query.filter_by(name=artist_name).first()
-                if not artist:
-                    # Wenn nicht, erstelle ein neues Artist-Objekt.
-                    artist = Artist(name=artist_name)
-                    db.session.add(artist)
+        # Falls das Objekt noch nicht in der DB existiert, neu anlegen.
+        # Falls es existierte (aber unvollständig war), nutzen wir das bestehende 'song'-Objekt.
+        if not song:
+            song = Track(track_id=track_id)  # type: ignore
+            db.session.add(song)
 
-                # Füge den gefundenen oder neuen Künstler zur Track-Beziehung hinzu.
-                new_track.artists.append(artist)
-                processed_artist_names.append(artist.name)
+        # Aktualisiere die Attribute mit den frischen Spotify-Daten
+        song.name = song_details["title"]
+        song.year = song_details["year"]
+        song.popularity = song_details["popularity"]
 
-            # Speichere alle Änderungen (neuer Track, neue Künstler) in die DB.
-            db.session.commit()
+        # Künstler verarbeiten: Bestehende Verknüpfungen ggf. bereinigen und neu setzen
+        song.artists.clear()
+        for artist_name in song_details["artists"]:
+            # Prüfe, ob der Künstler bereits in der DB existiert
+            artist = Artist.query.filter_by(name=artist_name).first()
+            if not artist:
+                # Falls nicht, erstelle ihn neu
+                artist = Artist(name=artist_name)  # type: ignore
+                db.session.add(artist)
 
-            # Gib das DTO mit den frisch geholten Daten zurück.
-            return new_track
+            # Verknüpfung zum Song hinzufügen
+            if artist not in song.artists:
+                song.artists.append(artist)
+
+        # Speichere die Änderungen (entweder neuer Track oder Update des bestehenden)
+        db.session.commit()
+
+        return song
 
     def save_new_song(self, new_song: Track):
         """Speichert einen neuen Song in der Datenbank."""

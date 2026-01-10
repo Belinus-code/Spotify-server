@@ -96,6 +96,7 @@ class TrainingService:
         )
 
         if most_popular_track:
+            self.song_repository.get_song(most_popular_track.track_id)
             return most_popular_track.track_id
         else:
             print(
@@ -115,6 +116,8 @@ class TrainingService:
         song = self.song_repository.get_song(track_id)
         if not song:
             raise LookupError(f"Song mit ID {track_id} nicht gefunden.")
+        print(f"checking song {song.name} id: {track_id}", flush=True)
+
         song = self.song_repository.get_dto_by_track(song)
 
         if user_guess["name"] is not None:
@@ -129,7 +132,8 @@ class TrainingService:
                 artist_sim,
                 fuzz.ratio(artist.lower(), user_guess["artist"].lower()),
             )
-        year_diff = abs(int(song.year) - int(user_guess["year"]))
+
+        year_diff = abs(int(song.year) - int(user_guess.get("year", 0)))
 
         score = (5 - min(5, year_diff)) / 2
         if name_sim > 60:

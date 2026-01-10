@@ -68,13 +68,14 @@ def create_app(config_class=Config):
             training_service=training_service,
             playback_service=playback_service,
             user_repository=user_repository,
+            spotify_service=spotify_service
         )
 
         # Registriere das fertige Blueprint bei der App
         app.register_blueprint(training_api_bp)
 
         # Beispiel für ein weiteres Blueprint
-        auth_bp = create_auth_blueprint(playback_service)
+        auth_bp = create_auth_blueprint(user_repository)
         app.register_blueprint(auth_bp)
 
         @app.route("/favicon.ico")
