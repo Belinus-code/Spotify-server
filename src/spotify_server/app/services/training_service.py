@@ -229,7 +229,7 @@ class TrainingService:
             print(f"base gap: {base_gap}", flush=True)
             if base_gap > 25:
                 training_card.is_done = True
-                self.ensure_training_songs(user_id, playlist_id, 15)
+                self.ensure_training_songs(user_id, playlist_id, 10)
             else:
                 print("schlecht", flush=True)
 
@@ -270,7 +270,7 @@ class TrainingService:
         finished_songs = self.training_repository.get_finished_track_count(user_id, playlist_id)
         below_threshold_count = (
             self.training_repository.count_tracks_below_threshold(
-                playlist_id=playlist_id, user_id=user_id, threshold=3
+                playlist_id=playlist_id, user_id=user_id, threshold=5
             )
         )
         if (all_songs - finished_songs) + below_threshold_count < amount:
