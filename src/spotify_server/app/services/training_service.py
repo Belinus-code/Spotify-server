@@ -287,6 +287,7 @@ class TrainingService:
 
         # Alles in Klammern entfernen
         title = re.sub(r"\(.*?\)", "", title)
+        title = re.sub(r"\[.*?\]", "", title)
         # Alles hinter einem Bindestrich entfernen
         title = title.split("-")[0]
         # Whitespace bereinigen
