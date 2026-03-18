@@ -4,12 +4,11 @@ import random
 import re
 from rapidfuzz import fuzz
 from typing import Any
-from spotify_server.app.models import Track, User, TrainingData
+from spotify_server.app.models import User, TrainingData
 from spotify_server.app.services.song_repository import SongRepository
 from spotify_server.app.services.training_repository import TrainingRepository
 from spotify_server.app.services.playback_service import PlaybackService
 from spotify_server.app.services.user_repository import UserRepository
-from spotify_server.app.services.spotify_service import SpotifyService
 
 
 class TrainingService:
@@ -291,6 +290,7 @@ class TrainingService:
         # Alles in Klammern entfernen
         title = re.sub(r"\(.*?\)", "", title)
         title = re.sub(r"\[.*?\]", "", title)
+        title = re.sub(r"\s+", " ", title)
         # Alles hinter einem Bindestrich entfernen
         title = title.split("-")[0]
         # Whitespace bereinigen
