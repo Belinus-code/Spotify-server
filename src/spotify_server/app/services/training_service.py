@@ -4,7 +4,7 @@ import random
 import re
 from rapidfuzz import fuzz
 from typing import Any
-from spotify_server.app.models import Track, User
+from spotify_server.app.models import Track, User, TrainingData
 from spotify_server.app.services.song_repository import SongRepository
 from spotify_server.app.services.training_repository import TrainingRepository
 from spotify_server.app.services.playback_service import PlaybackService
@@ -121,9 +121,12 @@ class TrainingService:
         song = self.song_repository.get_dto_by_track(song)
 
         if user_guess["name"] is not None:
-            name_sim = fuzz.ratio(
-                self.clean_title(song.title).lower(), user_guess["name"].lower()
-            )
+            guess_lower = user_guess["name"].lower()
+            title_base = self.clean_title(song.title).lower()
+            score_with_hyphen = fuzz.ratio(title_base, guess_lower)
+            title_short = re.split(r"\s+-\s+", title_base)[0]
+            score_without_hyphen = fuzz.ratio(title_short, guess_lower)
+            name_sim = max(score_with_hyphen, score_without_hyphen)
         else:
             name_sim = 0
         artist_sim = 0
@@ -158,7 +161,7 @@ class TrainingService:
         # 5. Gib das fertige Dictionary zurück
         return score_result
 
-    def choose_next_song(self, user: User, playlist_id: str) -> Track | None:
+    def choose_next_song(self, user: User, playlist_id: str) -> TrainingData | None:
         """
         Wählt nach einer bestimmten Logik die nächste zu wiederholende Lernkarte aus.
         (Diese Funktion wird von dir implementiert)

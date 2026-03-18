@@ -1,6 +1,6 @@
 """Module for handling user specific playback interactions with Spotify."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from spotify_server.app.models import User, Track
@@ -21,6 +21,7 @@ class PlaybackService:
             client_secret=client_secret,
             redirect_uri=redirect_uri,
             scope="user-modify-playback-state user-read-playback-state",
+            cache_handler=spotipy.cache_handler.MemoryCacheHandler()  # Verhindert .cache Datei Chaos!
         )
         self.user_repository = user_repository
         self.client_id = client_id
@@ -28,11 +29,12 @@ class PlaybackService:
         self.redirect_uri = redirect_uri
 
     def _get_oauth_manager(self):
-        """Erstellt einen SpotifyOAuth Manager für Refresh-Operationen."""
+        """Erstellt einen SpotifyOAuth Manager für Refresh-Operationen ohne File-Cache."""
         return SpotifyOAuth(
             client_id=self.client_id,
             client_secret=self.client_secret,
-            redirect_uri=self.redirect_uri
+            redirect_uri=self.redirect_uri,
+            cache_handler=spotipy.cache_handler.MemoryCacheHandler()  # Wichtig!
         )
 
     def _get_user_spotify_client(self, user: User) -> spotipy.Spotify | None:
@@ -49,20 +51,40 @@ class PlaybackService:
             print(f"User {user.username} hat Spotify nicht verbunden.")
             return None
 
-        # Prüfen, ob der Access Token abgelaufen ist (oder in den nächsten 60s abläuft)
-        # Wir geben ihm 60s Puffer.
-        now = datetime.utcnow()
-        if user.spotify_token_expires_at and user.spotify_token_expires_at <= (now + timedelta(seconds=60)):
-            print(f"[TOKEN] Token für User {user.username} ist abgelaufen. Erneuere...")
+        # --- FIX ZEITZONEN & ABLAUF-LOGIK ---
+        # 1. Sicherstellen, dass user.spotify_token_expires_at 'timezone-aware' ist
+        expires_at = user.spotify_token_expires_at
+
+        # Falls die DB ein naives datetime zurückgibt (ohne Zeitzone), nehmen wir an, es ist UTC
+        if expires_at and expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+        now = datetime.now(timezone.utc)
+
+        # Token ist abgelaufen, wenn expires_at in der Vergangenheit liegt oder in < 60s
+        is_expired = False
+        if not expires_at:
+            is_expired = True  # Wenn kein Datum da ist, auf jeden Fall erneuern
+        elif expires_at <= (now + timedelta(seconds=60)):
+            is_expired = True
+
+        if is_expired:
+            print(f"[TOKEN] Token für User {user.username} ist abgelaufen oder läuft gleich ab. Erneuere...")
             try:
                 oauth = self._get_oauth_manager()
-                # refresh_access_token gibt ein Dict mit neuem access_token, expires_in, etc. zurück
+
+                # Spotipy direkt nach einem neuen Token fragen
                 token_info = oauth.refresh_access_token(user.spotify_refresh_token)
 
                 if token_info:
                     new_access_token = token_info['access_token']
-                    new_expires_at = now + timedelta(seconds=token_info['expires_in'])
-                    new_refresh_token = token_info.get('refresh_token')  # Manchmal gibt es auch einen neuen Refresh Token
+
+                    # expires_in kommt als Sekunden zurück (meistens 3600)
+                    # Wir berechnen das neue Datum direkt in UTC, damit es safe ist.
+                    new_expires_at = datetime.now(timezone.utc) + timedelta(seconds=token_info['expires_in'])
+
+                    # Manchmal gibt es auch einen neuen Refresh Token
+                    new_refresh_token = token_info.get('refresh_token')
 
                     # In DB speichern
                     self.user_repository.update_user_tokens(
@@ -74,11 +96,17 @@ class PlaybackService:
 
                     print(f"[TOKEN] Token erfolgreich erneuert für {user.username}.")
 
+                    # Den frischen Token direkt in unser user-Objekt laden,
+                    # damit der Rest der Funktion den neuen Token nutzt!
+                    user.spotify_access_token = new_access_token
+
             except Exception as e:
                 print(f"[TOKEN ERROR] Fehler beim Erneuern des Tokens für User {user.user_id}: {e}")
-                # Im Fehlerfall machen wir weiter und hoffen das Beste, oder returnen None
-                return None
+                # Wir returnen trotzdem den Client. Wenn der alte Token wirklich tot ist,
+                # kracht es beim ersten Request, aber wir blockieren nicht präventiv alles.
+                pass
 
+        # Wir nutzen IMMER den (hoffentlich frischen) Token aus dem user Objekt
         return spotipy.Spotify(auth=user.spotify_access_token)
 
     def play_song(self, user: User, track_id: str):
