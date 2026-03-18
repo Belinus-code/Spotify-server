@@ -100,7 +100,8 @@ class TrainingService:
             return most_popular_track.track_id
         else:
             print(
-                f"User {user_id} lernt bereits alle Songs aus Playlist {playlist_id}.", flush=True
+                f"User {user_id} lernt bereits alle Songs aus Playlist {playlist_id}.",
+                flush=True,
             )
             return None
 
@@ -121,9 +122,12 @@ class TrainingService:
         song = self.song_repository.get_dto_by_track(song)
 
         if user_guess["name"] is not None:
-            name_sim = fuzz.ratio(
-                self.clean_title(song.title).lower(), user_guess["name"].lower()
-            )
+            guess_lower = user_guess["name"].lower()
+            title_base = self.clean_title(song.title).lower()
+            score_with_hyphen = fuzz.ratio(title_base, guess_lower)
+            title_short = re.split(r"\s+-\s+", title_base)[0]
+            score_without_hyphen = fuzz.ratio(title_short, guess_lower)
+            name_sim = max(score_with_hyphen, score_without_hyphen)
         else:
             name_sim = 0
         artist_sim = 0
@@ -266,12 +270,14 @@ class TrainingService:
 
     def ensure_training_songs(self, user_id: str, playlist_id: str, amount: int):
 
-        all_songs = self.training_repository.get_active_track_count(user_id, playlist_id)
-        finished_songs = self.training_repository.get_finished_track_count(user_id, playlist_id)
-        below_threshold_count = (
-            self.training_repository.count_tracks_below_threshold(
-                playlist_id=playlist_id, user_id=user_id, threshold=5
-            )
+        all_songs = self.training_repository.get_active_track_count(
+            user_id, playlist_id
+        )
+        finished_songs = self.training_repository.get_finished_track_count(
+            user_id, playlist_id
+        )
+        below_threshold_count = self.training_repository.count_tracks_below_threshold(
+            playlist_id=playlist_id, user_id=user_id, threshold=5
         )
         if (all_songs - finished_songs) + below_threshold_count < amount:
             song_id = self.add_new_song(user_id, playlist_id)
@@ -288,7 +294,7 @@ class TrainingService:
         # Alles in Klammern entfernen
         title = re.sub(r"\(.*?\)", "", title)
         title = re.sub(r"\[.*?\]", "", title)
+        title = re.sub(r"\s+", " ", title)
         # Alles hinter einem Bindestrich entfernen
-        title = title.split("-")[0]
         # Whitespace bereinigen
         return title.strip()

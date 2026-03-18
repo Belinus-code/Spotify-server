@@ -356,7 +356,7 @@
                 const skipBtn = document.getElementById('skip-btn');
                 const guessBtn = document.getElementById('guess-btn');
                 const statsBtn = document.getElementById('stats-btn');
-                const autoSkipToggle = document.getElementById('auto-skip-toggle'); // NEU
+                const autoSkipToggle = document.getElementById('auto-skip-toggle'); 
                 
                 const yearGuessInput = document.getElementById('year-guess-input');
                 const artistGuessInput = document.getElementById('artist-guess-input');
@@ -447,6 +447,9 @@
                 }
 
                 async function handleGuess() {
+                    // NEU: Verhindern, dass man nochmal rät, wenn das Ergebnis schon da ist
+                    if (answerArea.style.display === 'grid') return;
+
                     const guessData = {
                         user_id: currentUserId,
                         playlist_id: currentPlaylistId,
@@ -469,7 +472,6 @@
                         correctTitleSpan.textContent = response.correct_answer.title;
                         answerArea.style.display = 'grid';
 
-                        // NEU: Auto Skip Logik
                         if (autoSkipToggle.checked && response.score === 5) {
                             showNotification("Perfekt! Nächster Song in 1,5s...", "success", 1500);
                             setTimeout(() => {
@@ -525,13 +527,32 @@
                 guessBtn.addEventListener('click', handleGuess);
                 statsBtn.addEventListener('click', handleStats);
 
+                // --- ANGEPASSTE ENTER LOGIK ---
                 [yearGuessInput, artistGuessInput, titleGuessInput].forEach(input => {
                     input.addEventListener('keyup', (e) => {
                         if (e.key === 'Enter') {
                             e.preventDefault();
-                            guessBtn.click();
+                            // Wenn die Antwort schon sichtbar ist -> automatisch skippen
+                            if (answerArea.style.display === 'grid') {
+                                skipBtn.click();
+                            } else {
+                                // Ansonsten den Rate-Prozess starten
+                                guessBtn.click();
+                            }
                         }
                     });
+                });
+
+                // Falls der User den Rate-Button mit der Maus geklickt hat und der Fokus 
+                // nicht mehr im Textfeld ist, fangen wir Enter auf der ganzen Seite ab:
+                document.addEventListener('keyup', (e) => {
+                    if (e.key === 'Enter' && answerArea.style.display === 'grid') {
+                        // Verhindern, dass es doppelt auslöst, falls der Fokus doch noch im Input liegt
+                        if (![yearGuessInput, artistGuessInput, titleGuessInput].includes(document.activeElement)) {
+                            e.preventDefault();
+                            skipBtn.click();
+                        }
+                    }
                 });
             </script>
 
